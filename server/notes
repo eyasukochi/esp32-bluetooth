@@ -1,0 +1,5 @@
+- Followed Kolban's youtube tutorial on setting up a C++ project, that worked
+- Followed Kolban's esp32-snippets/cpp_utils/README about how to bring in that folder as local components in your project
+- Ran make menuconfig and enabled bluetooth (since I started with a non-bluetooth template from esp)
+  Enabling bluetooth also fixed weird includes/class not declared issues since Kolban's code disables bluetooth following whether or not it's enabled in the menuconfig
+- Then everything compiled okay.
