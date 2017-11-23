@@ -1,0 +1,144 @@
+MONITOR
+--- idf_monitor on /dev/ttyUSB0 115200 ---
+--- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H ---
+ets Jun  8 2016 00:22:57
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+ets Jun  8 2016 00:22:57
+
+rst:0x10 (RTCWDT_RTC_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0018,len:4
+load:0x3fff001c,len:5728
+ho 0 tail 12 room 4
+load:0x40078000,len:0
+load:0x40078000,len:13760
+entry 0x40079020
+I (74) boot: Detected ESP32
+I (33) boot: ESP-IDF v3.0-dev-1117-gabacf8d2 2nd stage bootloader
+I (33) boot: compile time 20:36:49
+I (44) boot: Enabling RNG early entropy source...
+I (44) boot: SPI Speed      : 40MHz
+I (44) boot: SPI Mode       : DIO
+I (48) boot: SPI Flash Size : 4MB
+I (52) boot: Partition Table:
+I (55) boot: ## Label            Usage          Type ST Offset   Length
+I (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (78) boot:  2 factory          factory app      00 00 00010000 00100000
+I (85) boot: End of partition table
+I (89) esp_image: segment 0: paddr=0x00010020 vaddr=0x3f400020 size=0x2adf8 (175608) map
+I (159) esp_image: segment 1: paddr=0x0003ae20 vaddr=0x3ffc0000 size=0x02b18 ( 11032) load
+I (164) esp_image: segment 2: paddr=0x0003d940 vaddr=0x40080000 size=0x00400 (  1024) load
+0x40080000: _iram_start at /home/ellison/esp/esp-idf/components/freertos/./xtensa_vectors.S:1685
+
+I (166) esp_image: segment 3: paddr=0x0003dd48 vaddr=0x40080400 size=0x022c8 (  8904) load
+I (179) esp_image: segment 4: paddr=0x00040018 vaddr=0x400d0018 size=0x679f8 (424440) map
+0x400d0018: _stext at ??:?
+
+I (331) esp_image: segment 5: paddr=0x000a7a18 vaddr=0x400826c8 size=0x0fad0 ( 64208) load
+0x400826c8: heap_caps_realloc_prefer at /home/ellison/esp/esp-idf/components/heap/./heap_caps.c:213 (discriminator 7)
+
+I (358) esp_image: segment 6: paddr=0x000b74f0 vaddr=0x400c0000 size=0x00000 (     0) load
+I (369) boot: Loaded app from partition at offset 0x10000
+I (369) boot: Disabling RNG early entropy source...
+I (370) cpu_start: Pro cpu up.
+I (373) cpu_start: Starting app cpu, entry point is 0x40080ed0
+0x40080ed0: call_start_cpu1 at /home/ellison/esp/esp-idf/components/esp32/./cpu_start.c:222
+
+I (0) cpu_start: App cpu up.
+I (384) heap_init: Initializing. RAM available for dynamic allocation:
+I (390) heap_init: At 3FFAFF10 len 000000F0 (0 KiB): DRAM
+I (397) heap_init: At 3FFCA9C8 len 00015638 (85 KiB): DRAM
+I (403) heap_init: At 3FFE0440 len 00003BC0 (14 KiB): D/IRAM
+I (409) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM
+I (415) heap_init: At 40092198 len 0000DE68 (55 KiB): IRAM
+I (422) cpu_start: Pro cpu start user code
+I (104) cpu_start: Starting scheduler on PRO CPU.
+I (0) cpu_start: Starting scheduler on APP CPU.
+I (232) system_api: Base MAC address is not set, read default base MAC address from BLK0 of EFUSE
+I (502) phy: phy_version: 366.0, ba9923d, Oct 31 2017, 18:06:17, 0, 0
+I (552) GATTS_DEMO: REGISTER_APP_EVT, status 0, app_id 0
+
+I (552) GATTS_DEMO: CREATE_SERVICE_EVT, status 0,  service_handle 40
+
+I (552) GATTS_DEMO: SERVICE_START_EVT, status 0, service_handle 40
+
+I (562) GATTS_DEMO: ADD_CHAR_EVT, status 0,  attr_handle 42, service_handle 40
+
+I (572) GATTS_DEMO: the gatts demo char length = 3
+
+I (572) GATTS_DEMO: prf_char[0] =11
+
+I (582) GATTS_DEMO: prf_char[1] =22
+
+I (582) GATTS_DEMO: prf_char[2] =33
+
+I (582) GATTS_DEMO: ADD_DESCR_EVT, status 0, attr_handle 43, service_handle 40
+
+I (592) GATTS_DEMO: REGISTER_APP_EVT, status 0, app_id 1
+
+I (602) GATTS_DEMO: CREATE_SERVICE_EVT, status 0,  service_handle 44
+
+I (612) GATTS_DEMO: SERVICE_START_EVT, status 0, service_handle 44
+
+I (612) GATTS_DEMO: ADD_CHAR_EVT, status 0,  attr_handle 46, service_handle 44
+
+I (622) GATTS_DEMO: ADD_DESCR_EVT, status 0, attr_handle 47, service_handle 44
+
+I (21792) GATTS_DEMO: ESP_GATTS_CONNECT_EVT, conn_id 0, remote 24:0a:c4:04:34:12:
+I (21792) GATTS_DEMO: CONNECT_EVT, conn_id 0, remote 24:0a:c4:04:34:12:
+I (22012) GATTS_DEMO: update connetion params status = 0, min_int = 16, max_int = 32,conn_int = 32,latency = 0, timeout = 400
+I (23132) GATTS_DEMO: ESP_GATTS_MTU_EVT, MTU 500
+I (23132) GATTS_DEMO: ESP_GATTS_MTU_EVT, MTU 500
+I (23212) GATTS_DEMO: GATT_WRITE_EVT, conn_id 0, trans_id 1, handle 43
+I (23212) GATTS_DEMO: GATT_WRITE_EVT, value len 2, value :
+I (23222) GATTS_DEMO: 01 00 
+I (23222) GATTS_DEMO: notify enable
+I (23232) GATTS_DEMO: ESP_GATTS_CONF_EVT, status 0
+I (23292) GATTS_DEMO: GATT_WRITE_EVT, conn_id 0, trans_id 2, handle 42
+I (23292) GATTS_DEMO: GATT_WRITE_EVT, value len 35, value :
+I (23302) GATTS_DEMO: 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 
+I (23302) GATTS_DEMO: 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 
+I (23312) GATTS_DEMO: 20 21 22 
+I (154932) GATTS_DEMO: ESP_GATTS_DISCONNECT_EVT
+I (159602) GATTS_DEMO: ESP_GATTS_CONNECT_EVT, conn_id 0, remote 24:0a:c4:04:34:12:
+I (159602) GATTS_DEMO: CONNECT_EVT, conn_id 0, remote 24:0a:c4:04:34:12:
+I (160602) GATTS_DEMO: update connetion params status = 16, min_int = 16, max_int = 32,conn_int = 12,latency = 0, timeout = 600
+I (165622) GATTS_DEMO: ESP_GATTS_DISCONNECT_EVT
+I (172452) GATTS_DEMO: ESP_GATTS_CONNECT_EVT, conn_id 0, remote 24:0a:c4:04:34:12:
+I (172452) GATTS_DEMO: CONNECT_EVT, conn_id 0, remote 24:0a:c4:04:34:12:
+I (172662) GATTS_DEMO: update connetion params status = 0, min_int = 16, max_int = 32,conn_int = 32,latency = 0, timeout = 400
+I (173822) GATTS_DEMO: ESP_GATTS_MTU_EVT, MTU 500
+I (173822) GATTS_DEMO: ESP_GATTS_MTU_EVT, MTU 500
+I (173902) GATTS_DEMO: GATT_WRITE_EVT, conn_id 0, trans_id 1, handle 43
+I (173902) GATTS_DEMO: GATT_WRITE_EVT, value len 2, value :
+I (173912) GATTS_DEMO: 01 00 
+I (173912) GATTS_DEMO: notify enable
+I (173922) GATTS_DEMO: ESP_GATTS_CONF_EVT, status 0
+I (173982) GATTS_DEMO: GATT_WRITE_EVT, conn_id 0, trans_id 2, handle 42
+I (173982) GATTS_DEMO: GATT_WRITE_EVT, value len 35, value :
+I (173992) GATTS_DEMO: 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 
+I (173992) GATTS_DEMO: 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 
+I (174002) GATTS_DEMO: 20 21 22 
+I (223942) GATTS_DEMO: ESP_GATTS_DISCONNECT_EVT
+I (224082) GATTS_DEMO: ESP_GATTS_CONNECT_EVT, conn_id 0, remote 24:0a:c4:04:34:12:
+I (224082) GATTS_DEMO: CONNECT_EVT, conn_id 0, remote 24:0a:c4:04:34:12:
+I (224292) GATTS_DEMO: update connetion params status = 0, min_int = 16, max_int = 32,conn_int = 32,latency = 0, timeout = 400
+I (225412) GATTS_DEMO: ESP_GATTS_MTU_EVT, MTU 500
+I (225412) GATTS_DEMO: ESP_GATTS_MTU_EVT, MTU 500
+I (225492) GATTS_DEMO: GATT_WRITE_EVT, conn_id 0, trans_id 1, handle 43
+I (225492) GATTS_DEMO: GATT_WRITE_EVT, value len 2, value :
+I (225492) GATTS_DEMO: 01 00 
+I (225502) GATTS_DEMO: notify enable
+I (225502) GATTS_DEMO: ESP_GATTS_CONF_EVT, status 0
+I (225572) GATTS_DEMO: GATT_WRITE_EVT, conn_id 0, trans_id 2, handle 42
+I (225572) GATTS_DEMO: GATT_WRITE_EVT, value len 35, value :
+I (225572) GATTS_DEMO: 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 
+I (225582) GATTS_DEMO: 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 
+I (225592) GATTS_DEMO: 20 21 22 
+
+Bro�
+

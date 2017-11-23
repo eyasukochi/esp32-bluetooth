@@ -1,0 +1,12 @@
+eclipse.preferences.version=1
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/BATCH_BUILD/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/BATCH_BUILD/operation=append
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/BATCH_BUILD/value=1
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/IDF_PATH/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/IDF_PATH/operation=append
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/IDF_PATH/value=/home/ellison/esp/esp-idf
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/PATH/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/PATH/operation=replace
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/PATH/value=/bin\:/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/usr/games\:/usr/local/games\:/snap/bin\:/home/ellison/esp/xtensa-esp32-elf/bin
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/append=true
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.1988502076/appendContributed=true
