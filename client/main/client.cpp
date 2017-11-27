@@ -75,8 +75,14 @@ class MyClient: public Task {
 			pRemoteCharacteristic->writeValue(stringStream.str());
 
 			FreeRTOS::sleep(1000);
+			/*
+			 * Could just loop indefinitely and periodically check the state of the button,
+			 * but only if an interrupt from the button was captured elsewhere.
+			 * I don't want to divert or break the BT processes.
+			 */
 		}
 
+		// UNREACHABLE... I think
 		pClient->disconnect();
 
 		ESP_LOGD(LOG_TAG, "%s", pClient->toString().c_str());
