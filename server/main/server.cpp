@@ -56,6 +56,7 @@ static void run() {
 	pService->start();
 
 	BLEAdvertising *pAdvertising = pServer->getAdvertising();
+	pAdvertising->addServiceUUID(BLEUUID(SERVICE_UUID));
 	pAdvertising->start();
 }
 
