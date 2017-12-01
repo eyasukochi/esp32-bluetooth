@@ -58,8 +58,15 @@ static void run() {
 	pService->start();
 
 	BLEAdvertising *pAdvertising = pServer->getAdvertising();
-//	pAdvertising->setCompleteServices(BLEUUID(SERVICE_UUID));
-	pAdvertising->addServiceUUID(BLEUUID(pService->getUUID()));
+	// As it turns out, the default Advertising Object from the Service, even with the UUID set doesn't form all of the Ad Types that the Client was expecting
+	// Manually constructing the advertisement data does set the expected Ad types and then everything seems to work.
+	BLEAdvertisementData pAdvertisementData;
+	pAdvertisementData.setCompleteServices(BLEUUID(SERVICE_UUID));
+//	pAdvertisementData.setFlags(06);
+	pAdvertisementData.setName("A_Great_Advertisement");
+	pAdvertisementData.setManufacturerData("F_YO_SELF");
+	pAdvertising->setAdvertisementData(pAdvertisementData);
+
 	pAdvertising->start();
 }
 
