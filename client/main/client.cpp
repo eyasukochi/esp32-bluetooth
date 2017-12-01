@@ -101,7 +101,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 	void onResult(BLEAdvertisedDevice advertisedDevice) {
 		ESP_LOGW(LOG_TAG, "Advertised Device: %s", advertisedDevice.toString().c_str());
 
-		if ( advertisedDevice.getServiceUUID() ) {
+		if ( advertisedDevice.haveServiceUUID() ) {
 			BLEUUID id = advertisedDevice.getServiceUUID();
 			ESP_LOGW(LOG_TAG, "Evaluating Service ID: %s", id.toString().c_str());
 		}
@@ -124,6 +124,6 @@ void app_main(void)
 	BLEScan *pBLEScan = BLEDevice::getScan();
 	pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
 	pBLEScan->setActiveScan(true);
-	pBLEScan->start(15);
+	pBLEScan->start(30);
 }
 

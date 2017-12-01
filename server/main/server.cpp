@@ -46,7 +46,9 @@ static void run() {
 
 	BLECharacteristic *pCharacteristic = pService->createCharacteristic(
 		BLEUUID(CHARACTERISTIC_UUID),
-		BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE
+		BLECharacteristic::PROPERTY_BROADCAST | BLECharacteristic::PROPERTY_READ  |
+		BLECharacteristic::PROPERTY_NOTIFY    | BLECharacteristic::PROPERTY_WRITE |
+		BLECharacteristic::PROPERTY_INDICATE
 	);
 
 	pCharacteristic->setCallbacks(new MyCallbacks());
@@ -56,7 +58,8 @@ static void run() {
 	pService->start();
 
 	BLEAdvertising *pAdvertising = pServer->getAdvertising();
-	pAdvertising->addServiceUUID(BLEUUID(SERVICE_UUID));
+//	pAdvertising->setCompleteServices(BLEUUID(SERVICE_UUID));
+	pAdvertising->addServiceUUID(BLEUUID(pService->getUUID()));
 	pAdvertising->start();
 }
 

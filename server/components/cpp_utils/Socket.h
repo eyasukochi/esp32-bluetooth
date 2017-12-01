@@ -7,7 +7,7 @@
 
 #ifndef COMPONENTS_CPP_UTILS_SOCKET_H_
 #define COMPONENTS_CPP_UTILS_SOCKET_H_
-
+#include "sdkconfig.h"
 #include <mbedtls/platform.h>
 
 #include <mbedtls/ctr_drbg.h>
@@ -37,6 +37,11 @@
 #include <cstring>
 #include <exception>
 
+
+#if CONFIG_CXX_EXCEPTIONS != 1
+#error "C++ exception handling must be enabled within make menuconfig. See Compiler Options > Enable C++ Exceptions."
+#endif
+
 class SocketException: public std::exception {
 public:
 	SocketException(int myErrno);
@@ -56,7 +61,7 @@ public:
 	Socket();
 	virtual ~Socket();
 
-	Socket accept(bool useSSL=false);
+	Socket accept();
 	static std::string addressToString(struct sockaddr* addr);
 	void bind(uint16_t port, uint32_t address);
 	void close();
@@ -99,7 +104,7 @@ public:
 	~SocketInputRecordStreambuf();
 	int_type underflow();
 private:
-	char *m_buffer;
+	char*   m_buffer;
 	Socket  m_socket;
 	size_t  m_dataLength;
 	size_t  m_bufferSize;

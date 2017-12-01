@@ -15,6 +15,7 @@
 #include "FileSystem.h"
 #include "WebSocket.h"
 #include "GeneralUtils.h"
+#include "Memory.h"
 static const char* LOG_TAG = "HttpServer";
 
 #undef close
@@ -65,9 +66,9 @@ static void listDirectory(std::string path, HttpResponse& response) {
  * Constructor for HTTP Server
  */
 HttpServer::HttpServer() {
-	m_portNumber = 80;              // The default port number.
-	m_rootPath   = "";             // The default path.
-	m_useSSL     = false;           // Default SSL is no.
+	m_portNumber = 80;            // The default port number.
+	m_rootPath   = "";            // The default path.
+	m_useSSL     = false;         // Default SSL is no.
 	setDirectoryListing(false);   // Default directory listing is no.
 } // HttpServer
 
@@ -180,19 +181,19 @@ private:
 	 */
 	void run(void* data) {
 		m_pHttpServer = (HttpServer*)data;             // The passed in data is an instance of an HttpServer.
-		m_pHttpServer->m_sockServ.setPort(m_pHttpServer->m_portNumber);
-		m_pHttpServer->m_sockServ.setSSL(m_pHttpServer->m_useSSL);
-		m_pHttpServer->m_sockServ.start();
+		m_pHttpServer->m_socket.setSSL(m_pHttpServer->m_useSSL);
+		m_pHttpServer->m_socket.listen(m_pHttpServer->m_portNumber);
 		ESP_LOGD("HttpServerTask", "Listening on port %d", m_pHttpServer->getPort());
 		Socket clientSocket;
 		while(1) {   // Loop forever.
 
 			ESP_LOGD("HttpServerTask", "Waiting for new peer client");
-
+			//Memory::checkIntegrity();
 			try {
-				clientSocket = m_pHttpServer->m_sockServ.waitForNewClient();   // Block waiting for a new external client connection.
+				clientSocket = m_pHttpServer->m_socket.accept();   // Block waiting for a new external client connection.
 			}
-			catch(std::exception e) {
+			catch(std::exception &e) {
+				ESP_LOGE("HttpServerTask", "Caught an exception waiting for new client!");
 				return;
 			}
 
@@ -351,7 +352,7 @@ void HttpServer::stop() {
 	// that is listening for incoming connections.  That will then shutdown all the other
 	// activities.
 	ESP_LOGD(LOG_TAG, ">> stop");
-	m_sockServ.stop();
+	m_socket.close();
 	ESP_LOGD(LOG_TAG, "<< stop");
 } // stop
 
