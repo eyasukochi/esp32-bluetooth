@@ -215,7 +215,7 @@ void BLEAdvertisedDevice::parseAdvertisement(uint8_t* payload) {
 			length--;
 
 			char* pHex = BLEUtils::buildHexData(nullptr, payload, length);
-			ESP_LOGW(LOG_TAG, "Type: 0x%.2x (%s), length: %d, data: %s",
+			ESP_LOGD(LOG_TAG, "Type: 0x%.2x (%s), length: %d, data: %s",
 					ad_type, BLEUtils::advTypeToString(ad_type), length, pHex);
 			free(pHex);
 
@@ -275,7 +275,7 @@ void BLEAdvertisedDevice::parseAdvertisement(uint8_t* payload) {
 				} // ESP_BLE_AD_MANUFACTURER_SPECIFIC_TYPE
 
 				default: {
-					ESP_LOGW(LOG_TAG, "Unhandled type: adType: %d - 0x%.2x", ad_type, ad_type);
+					ESP_LOGD(LOG_TAG, "Unhandled type: adType: %d - 0x%.2x", ad_type, ad_type);
 					break;
 				}
 			} // switch
