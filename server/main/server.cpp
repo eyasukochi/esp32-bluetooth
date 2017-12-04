@@ -79,17 +79,10 @@ static void run_backward()
 	printf("Trying to run back\n");
 	uint32_t angle;
 	angle = servo_per_degree_init(10);
-	printf("pulse width: %dus\n", angle);
+//	printf("pulse width: %dus\n", angle);
 	// probably don't iterate just jump back to flat, so figure out whatever that value is?
 	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
 	vTaskDelay(5);
-//	for (count = 0; count < SERVO_MAX_DEGREE; count++) {
-//		printf("Angle of rotation: %d\n", count);
-//		angle = servo_per_degree_init(count);
-//		printf("pulse width: %dus\n", angle);
-//		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
-//		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-//	}
 }
 
 static uint16_t state = 0;

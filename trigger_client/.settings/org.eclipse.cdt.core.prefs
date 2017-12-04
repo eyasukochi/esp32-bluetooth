@@ -1,9 +1,0 @@
-eclipse.preferences.version=1
-environment/project/cdt.managedbuild.toolchain.gnu.cross.base.926725117.872087179/BATCH_BUILD/delimiter=\:
-environment/project/cdt.managedbuild.toolchain.gnu.cross.base.926725117.872087179/BATCH_BUILD/operation=append
-environment/project/cdt.managedbuild.toolchain.gnu.cross.base.926725117.872087179/BATCH_BUILD/value=1
-environment/project/cdt.managedbuild.toolchain.gnu.cross.base.926725117.872087179/IDF_PATH/delimiter=\:
-environment/project/cdt.managedbuild.toolchain.gnu.cross.base.926725117.872087179/IDF_PATH/operation=append
-environment/project/cdt.managedbuild.toolchain.gnu.cross.base.926725117.872087179/IDF_PATH/value=/home/ellison/esp/esp-idf
-environment/project/cdt.managedbuild.toolchain.gnu.cross.base.926725117.872087179/append=true
-environment/project/cdt.managedbuild.toolchain.gnu.cross.base.926725117.872087179/appendContributed=true
