@@ -20,18 +20,22 @@
 #include "BLEUtils.h"
 #include "BLEScan.h"
 #include "BLEAddress.h"
+
 /**
  * @brief %BLE functions.
  */
 class BLEDevice {
 public:
 
-	static BLEClient* createClient();
-	static BLEServer* createServer();
-	static void       dumpDevices();
-	static BLEAddress getAddress();
-	static BLEScan*   getScan();
-	static void       init(std::string deviceName);
+	static BLEClient*  createClient();    // Create a new BLE client.
+	static BLEServer*  createServer();    // Cretae a new BLE server.
+	static BLEAddress  getAddress();      // Retrieve our own local BD address.
+	static BLEScan*    getScan();         // Get the scan object
+	static std::string getValue(BLEAddress bdAddress, BLEUUID serviceUUID, BLEUUID characteristicUUID);	  // Get the value of a characteristic of a service on a server.
+	static void        init(std::string deviceName);   // Initialize the local BLE environment.
+	static void        setPower(esp_power_level_t powerLevel);  // Set our power level.
+	static void        setValue(BLEAddress bdAddress, BLEUUID serviceUUID, BLEUUID characteristicUUID, std::string value);   // Set the value of a characteristic on a service on a server.
+	static std::string toString();        // Return a string representation of our device.
 
 private:
 	static BLEServer *m_pServer;
@@ -53,9 +57,6 @@ private:
 	static void gapEventHandler(
 		esp_gap_ble_cb_event_t  event,
 		esp_ble_gap_cb_param_t* param);
-
-public:
-	static void setPower(esp_power_level_t powerLevel);
 
 }; // class BLE
 

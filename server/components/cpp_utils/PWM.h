@@ -22,10 +22,10 @@ class PWM {
 public:
 	PWM(
 		int gpioNum,
-		uint32_t frequency = 100,
+		uint32_t frequency       = 100,
 		ledc_timer_bit_t bitSize = LEDC_TIMER_10_BIT,
-		ledc_timer_t timer = LEDC_TIMER_0,
-		ledc_channel_t channel = LEDC_CHANNEL_0);
+		ledc_timer_t timer       = LEDC_TIMER_0,
+		ledc_channel_t channel   = LEDC_CHANNEL_0);
 
 	uint32_t getDuty();
 	uint32_t getFrequency();
@@ -34,9 +34,9 @@ public:
 	void     setFrequency(uint32_t freq);
 	void     stop(bool idleLevel=false);
 private:
-	ledc_channel_t   channel;
-	ledc_timer_t     timer;
-	ledc_timer_bit_t bitSize; // Bit size of timer.
+	ledc_channel_t   m_channel;
+	ledc_timer_t     m_timer;
+	ledc_timer_bit_t m_dutyResolution; // Bit size of timer.
 };
 
 #endif /* COMPONENTS_CPP_UTILS_PWM_H_ */

@@ -24,16 +24,16 @@
  *
  * @param [in] gpioNum The GPIO pin to use for output.
  * @param [in] frequency The frequency of the period.
- * @param [in] bitSize The size in bits of the timer.  Allowed values are LEDC_TIMER_10_BIT,
+ * @param [in] dutyResolution The size in bits of the timer.  Allowed values are LEDC_TIMER_10_BIT,
  * LEDC_TIMER_11_BIT, LEDC_TIMER_12_BIT, LEDC_TIMER_13_BIT, LEDC_TIMER_14_BIT, LEDC_TIMER_15_BIT.
  * @param [in] timer The timer to use. A value of LEDC_TIMER0, LEDC_TIMER1, LEDC_TIMER2 or LEDC_TIMER3.
  * @param [in] channel The channel to use.  A value from LEDC_CHANNEL0 to LEDC_CHANNEL1.
 
  * @return N/A.
  */
-PWM::PWM(int gpioNum, uint32_t frequency, ledc_timer_bit_t bitSize, ledc_timer_t timer, ledc_channel_t channel) {
+PWM::PWM(int gpioNum, uint32_t frequency, ledc_timer_bit_t dutyResolution, ledc_timer_t timer, ledc_channel_t channel) {
 	ledc_timer_config_t timer_conf;
-	timer_conf.bit_num    = bitSize;
+	timer_conf.duty_resolution    = dutyResolution;
 	timer_conf.freq_hz    = frequency;
 	timer_conf.speed_mode = LEDC_HIGH_SPEED_MODE;
 	timer_conf.timer_num  = timer;
@@ -48,9 +48,9 @@ PWM::PWM(int gpioNum, uint32_t frequency, ledc_timer_bit_t bitSize, ledc_timer_t
 	ledc_conf.timer_sel  = timer;
 	ESP_ERROR_CHECK(::ledc_channel_config(&ledc_conf));
 
-	this->channel  = channel;
-	this->timer    = timer;
-	this->bitSize  = bitSize;
+	this->m_channel        = channel;
+	this->m_timer          = timer;
+	this->m_dutyResolution = dutyResolution;
 } // PWM
 
 
@@ -60,7 +60,7 @@ PWM::PWM(int gpioNum, uint32_t frequency, ledc_timer_bit_t bitSize, ledc_timer_t
  * @return The duty cycle value.
  */
 uint32_t PWM::getDuty() {
-	return ::ledc_get_duty(LEDC_HIGH_SPEED_MODE, channel);
+	return ::ledc_get_duty(LEDC_HIGH_SPEED_MODE, m_channel);
 } // getDuty
 
 
@@ -70,7 +70,7 @@ uint32_t PWM::getDuty() {
  * @return The frequency/period in Hz.
  */
 uint32_t PWM::getFrequency() {
-	return ::ledc_get_freq(LEDC_HIGH_SPEED_MODE, timer);
+	return ::ledc_get_freq(LEDC_HIGH_SPEED_MODE, m_timer);
 } // getFrequency
 
 
@@ -84,8 +84,8 @@ uint32_t PWM::getFrequency() {
  * @return N/A.
  */
 void PWM::setDuty(uint32_t duty) {
-	ESP_ERROR_CHECK(::ledc_set_duty(LEDC_HIGH_SPEED_MODE, channel, duty));
-	ESP_ERROR_CHECK(::ledc_update_duty(LEDC_HIGH_SPEED_MODE, channel));
+	ESP_ERROR_CHECK(::ledc_set_duty(LEDC_HIGH_SPEED_MODE, m_channel, duty));
+	ESP_ERROR_CHECK(::ledc_update_duty(LEDC_HIGH_SPEED_MODE, m_channel));
 } // setDuty
 
 
@@ -97,7 +97,7 @@ void PWM::setDuty(uint32_t duty) {
  */
 void PWM::setDutyPercentage(uint8_t percent) {
 	uint32_t max;
-	switch(bitSize) {
+	switch(m_dutyResolution) {
 		case LEDC_TIMER_10_BIT:
 			max = 1 << 10;
 			break;
@@ -139,7 +139,7 @@ void PWM::setDutyPercentage(uint8_t percent) {
  * @return N/A.
  */
 void PWM::setFrequency(uint32_t freq) {
-	ESP_ERROR_CHECK(::ledc_set_freq(LEDC_HIGH_SPEED_MODE, timer, freq));
+	ESP_ERROR_CHECK(::ledc_set_freq(LEDC_HIGH_SPEED_MODE, m_timer, freq));
 } // setFrequency
 
 
@@ -150,5 +150,5 @@ void PWM::setFrequency(uint32_t freq) {
  * @return N/A.
  */
 void PWM::stop(bool idleLevel) {
-	ESP_ERROR_CHECK(::ledc_stop(LEDC_HIGH_SPEED_MODE, channel, idleLevel));
+	ESP_ERROR_CHECK(::ledc_stop(LEDC_HIGH_SPEED_MODE, m_channel, idleLevel));
 } // stop
