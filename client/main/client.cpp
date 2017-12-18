@@ -168,56 +168,6 @@ class MyClient: public Task {
 		std::string value = pRemoteCharacteristic->readValue();
 		ESP_LOGW(LOG_TAG, "The characteristic value was: %s", value.c_str());
 
-
-//		TickType_t begin_event_tick = 0;
-//		TickType_t event_tick;
-//
-//		uint32_t level_nc = gpio_get_level(GPIO_NC);
-//		uint32_t level_no = gpio_get_level(GPIO_NO);
-//		bool button_state = false;
-//		bool state = false;
-//		printf("NC initially registered as: %d\n", level_nc);
-//		for(;;) {
-//
-//			if(xQueueReceive(gpio_evt_nc_queue, &event_tick, portMAX_DELAY)) {
-//	//    		printf("Somebody hit @ %d\n", event_tick);
-//				level_nc = gpio_get_level(GPIO_NC);
-//				if (level_nc) {
-//					state = true;
-//				}
-//				level_no = gpio_get_level(GPIO_NO);
-//				if (level_no) {
-//					state = false;
-//				}
-//				if ( state != button_state )
-//				{
-//					//capture time and whether this is the beginning or end of a push
-//					button_state = state;
-//					if ( button_state ) {
-//						begin_event_tick = event_tick; // capture start moment
-//					} else {
-//						uint32_t elapsed = event_tick - begin_event_tick;
-//						if ( elapsed > 10 && elapsed < 500 )
-//						{
-//							printf("short press finished\n");
-//							xQueueSendToBack(short_evt_queue, &event_tick, NULL);
-//						} else if ( elapsed >= 500 ){
-//							// TODO launch (D)
-//							pRemoteCharacteristic->writeValue("msg_D");
-//							printf("long press finished\n");
-//						}
-//						// things happening in sub-10 ticks are noise
-//					}
-//				}
-//			}
-//		}
-
-
-
-		// Time-based debounce values
-//		TickType_t event_tick;
-//		TickType_t last_event_tick = 0;
-//
 		uint16_t msg_code;
 		while(1) {
 //			// Just straight up block on this method until we get an interrupt message on the queue
@@ -236,32 +186,6 @@ class MyClient: public Task {
 				pRemoteCharacteristic->writeValue("D");
 			}
 		}
-//
-//			/*
-//			 * debounce approach
-//			 * On each interrupt:
-//			 *  if time_state is empty, set time_state to now and send value to server
-//			 *  else compare current time to time_state,
-//			 *    if < X, exit method
-//			 *    else if >= X, set time_state to now and send value to server
-//			 *
-//			 */
-//			if ( last_event_tick == 0 ) {
-//				ESP_LOGD(LOG_TAG, "Trying to write first hit @ %d", event_tick);
-//				last_event_tick = event_tick;
-//				pRemoteCharacteristic->writeValue("FF");
-//			} else {
-//				if ( event_tick - last_event_tick > 500 ) {
-//					ESP_LOGD(LOG_TAG, "Trying to write subsequent hit @ %d", event_tick);
-//					last_event_tick = event_tick;
-//					pRemoteCharacteristic->writeValue("FF");
-//				} else {
-//					// else do nothing because the window between hits is too small
-//					ESP_LOGD(LOG_TAG, "Missed @ %d", event_tick);
-//				}
-//
-//			}
-//		}
 
 		// UNREACHABLE... I think
 		pClient->disconnect();
@@ -302,19 +226,6 @@ void app_main(void)
 
 	// Configure GPIO pin first
 	ESP_LOGW(LOG_TAG, ">> test1_task");
-
-//	q1 = xQueueCreate(10, sizeof(gpio_num_t));
-//
-//	gpio_config_t gpioConfig;
-//	gpioConfig.pin_bit_mask = GPIO_SEL_18;
-//	gpioConfig.mode         = GPIO_MODE_INPUT;
-//	gpioConfig.pull_up_en   = GPIO_PULLUP_DISABLE;
-//	gpioConfig.pull_down_en = GPIO_PULLDOWN_ENABLE;
-//	gpioConfig.intr_type    = GPIO_INTR_POSEDGE;
-//	gpio_config(&gpioConfig);
-//
-//	gpio_install_isr_service(0);
-//	gpio_isr_handler_add(TEST_GPIO, handler, NULL);
 
 	gpio_config_t gpioConfig;
 	gpioConfig.pin_bit_mask = GPIO_INPUT_PIN_SEL;
