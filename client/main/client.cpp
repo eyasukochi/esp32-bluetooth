@@ -37,9 +37,6 @@ static BLEUUID serviceUUID("6d124ed1-50f5-4ebf-b490-c3db81cbaa8c");
 static BLEUUID    charUUID("4c7a3456-6ac2-4e16-9951-028dc32c443c");
 
 // GPIO interrupt stuff
-//#define TEST_GPIO GPIO_NUM_18
-//static QueueHandle_t q1;
-
 #define ESP_INTR_FLAG_DEFAULT 0
 
 #define GPIO_NC GPIO_NUM_4

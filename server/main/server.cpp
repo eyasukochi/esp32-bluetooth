@@ -36,9 +36,11 @@ void app_main(void);
 #define SERVO_MAX_PULSEWIDTH 2250 //Maximum pulse width in microsecond
 #define SERVO_MAX_DEGREE 2000 //Maximum angle in degree upto which servo can rotate
 
+static xQueueHandle sequence_interrupt_queue = NULL;
 
 #define SERVICE_UUID        "6d124ed1-50f5-4ebf-b490-c3db81cbaa8c"
 #define CHARACTERISTIC_UUID "4c7a3456-6ac2-4e16-9951-028dc32c443c"
+
 
 static void mcpwm_example_gpio_initialize()
 {
@@ -85,31 +87,87 @@ static void run_backward()
 	vTaskDelay(5);
 }
 
-static uint16_t state = 0;
-/*
- * I'm thinking this one should probably call into a thread that can be interrupted?
- * For now it can just manage a non-volatile state, since I'm pretty sure multiple onWrites won't blow anything up?
- * might cause weird behavior.
- * SUBSEQUENT BUTTON PUSHES ARE EFFECTIVELY QUEUED/BLOCKED
- *
- * 0 is uninitialized, so set to 1, go forward (0,2 may be redundant but I may want to treat startup differently?)
- * 1 is go forward, so set to 2, go backwards
- * 2 is go backward, so set to 1, go forwards
- */
-static void run_servo_routine()
+static bool active = false;
+
+// go home
+static void sequence_home()
 {
-	if ( state == 0 ) {
-		state = 1;
-		run_forward();
-	} else if ( state == 1 ) {
-		state = 2;
-		run_backward();
-	} else {
-		state = 1;
-		run_forward();
-	}
+	printf("Trying to run back\n");
+	uint32_t angle;
+	angle = servo_per_degree_init(10);
+//	printf("pulse width: %dus\n", angle);
+	// probably don't iterate just jump back to flat, so figure out whatever that value is?
+	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+	vTaskDelay(5);
 }
 
+// raise up, slow
+static void sequence_up_slow()
+{
+	active = true;
+	uint32_t angle, count;
+	for (count = 0; count < SERVO_MAX_DEGREE; count++) {
+//		printf("Angle of rotation: %d\n", count);
+		angle = servo_per_degree_init(count);
+//		printf("pulse width: %dus\n", angle);
+		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+	}
+	active = false;
+}
+
+// raise up, fast
+static void sequence_up_fast()
+{
+	active = true;
+	uint32_t angle, count;
+	for (count = 0; count < 1500; count++) { //guess at better max degree
+		if (uxQueueMessagesWaiting(sequence_interrupt_queue) > 0)
+		{
+			// emergency interrupt
+			sequence_home();
+			// consume that message from the queue
+			std::string value;
+			xQueueReceive(sequence_interrupt_queue, &value, portMAX_DELAY);
+			break;
+		}
+		angle = servo_per_degree_init(count);
+//		printf("Angle of rotation: %d\n", count);
+//		printf("pulse width: %dus\n", angle);
+		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+	}
+	active = false;
+}
+
+static void sequence_tip_up()
+{
+	//TODO make this a waggle that then stays up
+}
+
+static void sequence_tip_down()
+{
+	//TODO, because NA
+}
+
+// tremors
+static void sequence_tremors()
+{
+
+}
+
+/*
+
+	INTERRUPT PATTERNS AND BEHAVIORS:
+A 	1 button depression (with 3 sec appx)- this is the “reset”, sends the tie back to it’s natural vertical state
+
+B	2  quick depressions- this sends the tie fairly slowly into a half erect state where the base in now horizontal
+ B1      -> 2 button depressions would make the tip flip up and stay (make it wave first?)
+C	3 quick depressions- basically the same as 2 depressions, just done quickly
+D	1 button press and hold- this sends the tie into “tremors” for appx 3 sec where is just sorta wiggles back and forth.
+
+
+ */
 
 class MyCallbacks: public BLECharacteristicCallbacks {
 	void onWrite(BLECharacteristic *pCharacteristic) {
@@ -119,7 +177,31 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 			ESP_LOGD(LOG_TAG, "New value: %.2x", value[0]);
 			ESP_LOGD(LOG_TAG, "*********");
 
-			run_servo_routine();
+			//TODO push the received hex value into another queue which is checked by all routines continously for messages?
+			/*
+			 * That's a little hectic since there are two states,
+			 * one where somebody needs to start it cold
+			 * and one where somebody is midway through and receives an interrupt to go home
+			 * So a global "active" state needs to be maintained.
+			 *
+			 * Could detect which state was running, and if there is an active state, push messages into a special interrupt queue which is continously checked
+			 * so that way you can launch by calling the method and then interrupt them with the special ones (like home, probably)
+			 */
+
+			if ( active ){
+
+			} else {
+				//interpret the signal and call the appropriate method
+				if ( value.compare("A") == 0 ) {
+					sequence_home();
+				} else if ( value.compare("B") == 0 ) {
+					sequence_up_slow();
+				} else if ( value.compare("C") == 0 ) {
+					sequence_up_fast();
+				} else if ( value.compare("D") == 0 ) {
+					sequence_tremors();
+				}
+			}
 		}
 	}
 };
@@ -162,6 +244,7 @@ void app_main(void)
 
 	//1. mcpwm gpio initialization
 	mcpwm_example_gpio_initialize();
+	sequence_interrupt_queue = xQueueCreate(10, sizeof(uint32_t));
 
 	//2. initial mcpwm configuration
 	printf("Configuring Initial Parameters of mcpwm......\n");
