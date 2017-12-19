@@ -8,6 +8,7 @@
 #include "BLEServer.h"
 #include <esp_log.h>
 #include <string>
+#include <string.h>
 //#include <sys/time.h>
 #include <sstream>
 #include "BLEDevice.h"
@@ -36,16 +37,20 @@ void app_main(void);
 #define SERVO_MAX_PULSEWIDTH 2250 //Maximum pulse width in microsecond
 #define SERVO_MAX_DEGREE 2000 //Maximum angle in degree upto which servo can rotate
 
+static xQueueHandle ble_to_servo_queue = NULL;
 static xQueueHandle sequence_interrupt_queue = NULL;
 
 #define SERVICE_UUID        "6d124ed1-50f5-4ebf-b490-c3db81cbaa8c"
 #define CHARACTERISTIC_UUID "4c7a3456-6ac2-4e16-9951-028dc32c443c"
 
+#define MAIN_SERVO_GPIO 18
+#define TIP_SERVO_GPIO 19
 
 static void mcpwm_example_gpio_initialize()
 {
     printf("initializing mcpwm servo control gpio......\n");
-    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, 18);    //Set GPIO 18 as PWM0A, to which servo is connected
+    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, MAIN_SERVO_GPIO);    //Set GPIO 18 as PWM0A, to which servo is connected
+//    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, TIP_SERVO_GPIO);     //Set GPIO 19 as PWM0B, to which tip servo is connected
 }
 
 /**
@@ -63,111 +68,195 @@ static uint32_t servo_per_degree_init(uint32_t degree_of_rotation)
     return cal_pulsewidth;
 }
 
-static void run_forward()
-{
-	printf("Trying to run forward\n");
-	uint32_t angle, count;
-	for (count = 0; count < SERVO_MAX_DEGREE; count++) {
-//		printf("Angle of rotation: %d\n", count);
-		angle = servo_per_degree_init(count);
-//		printf("pulse width: %dus\n", angle);
-		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
-		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-	}
-}
+//static void run_forward()
+//{
+//	printf("Trying to run forward\n");
+//	uint32_t angle, count;
+//	for (count = 0; count < SERVO_MAX_DEGREE; count++) {
+////		printf("Angle of rotation: %d\n", count);
+//		angle = servo_per_degree_init(count);
+////		printf("pulse width: %dus\n", angle);
+//		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+//		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+//	}
+//}
+//
+//static void run_backward()
+//{
+//	printf("Trying to run back\n");
+//	uint32_t angle;
+//	angle = servo_per_degree_init(10);
+////	printf("pulse width: %dus\n", angle);
+//	// probably don't iterate just jump back to flat, so figure out whatever that value is?
+//	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+//	vTaskDelay(5);
+//}
 
-static void run_backward()
-{
-	printf("Trying to run back\n");
-	uint32_t angle;
-	angle = servo_per_degree_init(10);
-//	printf("pulse width: %dus\n", angle);
-	// probably don't iterate just jump back to flat, so figure out whatever that value is?
-	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
-	vTaskDelay(5);
-}
+//TODO active should probably something more sophisticated and thread-safe but whatever
+static int active = false;
+// Integer to track the current behavior state
+static int state = -1;
 
-static bool active = false;
+
+static void sequence_tip_down()
+{
+	// TODO
+//	uint32_t angle;
+//	angle = servo_per_degree_init(10);
+//	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+//	vTaskDelay(5);
+}
 
 // go home
 static void sequence_home()
 {
+	state = 0;
+
 	printf("Trying to run back\n");
 	uint32_t angle;
 	angle = servo_per_degree_init(10);
-//	printf("pulse width: %dus\n", angle);
-	// probably don't iterate just jump back to flat, so figure out whatever that value is?
 	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
 	vTaskDelay(5);
+//	sequence_tip_down();
+}
+
+static bool check_if_i_should_go_home()
+{
+	if (uxQueueMessagesWaiting(sequence_interrupt_queue) > 0)
+	{
+		// emergency interrupt
+		printf("interrupting to go home!\n");
+		sequence_home();
+		// consume that message from the queue
+		char value[1];
+		xQueueReceive(sequence_interrupt_queue, &value, portMAX_DELAY);
+		return true;
+	}
+	return false;
 }
 
 // raise up, slow
 static void sequence_up_slow()
 {
-	active = true;
+	state = 10;
+
+	printf("Trying to go up slow\n");
 	uint32_t angle, count;
 	for (count = 0; count < SERVO_MAX_DEGREE; count++) {
-//		printf("Angle of rotation: %d\n", count);
+		if (check_if_i_should_go_home()) {
+			break;
+		}
 		angle = servo_per_degree_init(count);
-//		printf("pulse width: %dus\n", angle);
 		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
 		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
 	}
-	active = false;
+
 }
 
 // raise up, fast
 static void sequence_up_fast()
 {
-	active = true;
+	state = 20;
+
+	printf("Trying to go up fast\n");
 	uint32_t angle, count;
 	for (count = 0; count < 1500; count++) { //guess at better max degree
-		if (uxQueueMessagesWaiting(sequence_interrupt_queue) > 0)
-		{
-			// emergency interrupt
-			sequence_home();
-			// consume that message from the queue
-			std::string value;
-			xQueueReceive(sequence_interrupt_queue, &value, portMAX_DELAY);
+		if (check_if_i_should_go_home()) {
 			break;
 		}
 		angle = servo_per_degree_init(count);
-//		printf("Angle of rotation: %d\n", count);
-//		printf("pulse width: %dus\n", angle);
 		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
 		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
 	}
-	active = false;
+
 }
 
 static void sequence_tip_up()
 {
-	//TODO make this a waggle that then stays up
-}
-
-static void sequence_tip_down()
-{
-	//TODO, because NA
+	state = 12;
+	//TODO
+//	printf("Trying to flip the tip up\n");
+//	//TODO make this a waggle that then stays up
+//	uint32_t angle, count;
+//	for (count = 0; count < SERVO_MAX_DEGREE; count++) {
+//		if (check_if_i_should_go_home()) {
+//			break;
+//		}
+//		angle = servo_per_degree_init(count);
+//		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+//		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+//	}
 }
 
 // tremors
 static void sequence_tremors()
 {
+	state = 30;
 
+	//TODO I DON'T KNOW
 }
 
+static void servo_controller(void *arg)
+{
+
+	// Manages the operation graph
+	printf("servo_controller started up\n");
+	int state = -1; //tracks last executed state for operation graph
+
+//	std::string value;
+	char value[1];
+	while(1) {
+
+		xQueueReceive(ble_to_servo_queue, &value, portMAX_DELAY);
+		printf("servo_controller message received:  %s\n", value);
+		//interpret the signal and call the appropriate method
+
+		if ( value[0] == 'A' )  {
+			sequence_home();
+		} else if ( value[0] == 'B' ) {
+			active = true;
+			if ( state == 10 || state == 20 ) { // meaning it's already in up_slow or up_fast
+				sequence_tip_up();
+			} else {
+				sequence_up_slow();
+			}
+		} else if ( value[0] == 'C' ) {
+			active = true;
+			sequence_up_fast();
+		} else if ( value[0] == 'D' ) {
+			active = true;
+			sequence_tremors();
+		}
+		active = false;
+	}
+}
 /*
 
 	INTERRUPT PATTERNS AND BEHAVIORS:
-A 	1 button depression (with 3 sec appx)- this is the “reset”, sends the tie back to it’s natural vertical state
+A(0) 	1 button depression (with 3 sec appx)- this is the “reset”, sends the tie back to it’s natural vertical state
 
-B	2  quick depressions- this sends the tie fairly slowly into a half erect state where the base in now horizontal
- B1      -> 2 button depressions would make the tip flip up and stay (make it wave first?)
-C	3 quick depressions- basically the same as 2 depressions, just done quickly
-D	1 button press and hold- this sends the tie into “tremors” for appx 3 sec where is just sorta wiggles back and forth.
+B(10)	2  quick depressions- this sends the tie fairly slowly into a half erect state where the base in now horizontal
+ B1(12)      -> 2 button depressions would make the tip flip up and stay (make it wave first?)
+C(20)	3 quick depressions- basically the same as 2 depressions, just done quickly
+			 -> 2 button depressions would make the tip flip up and stay (make it wave first?)
+D(30)	1 button press and hold- this sends the tie into “tremors” for appx 3 sec where is just sorta wiggles back and forth.
 
 
  */
+
+
+
+//TODO push the received hex value into another queue which is checked by all routines continously for messages?
+/*
+ * That's a little hectic since there are two states,
+ * one where somebody needs to start it cold
+ * and one where somebody is midway through and receives an interrupt to go home
+ * So a global "active" state needs to be maintained.
+ *
+ * Could detect which state was running, and if there is an active state, push messages into a special interrupt queue which is continously checked
+ * so that way you can launch by calling the method and then interrupt them with the special ones (like home, probably)
+ */
+
 
 class MyCallbacks: public BLECharacteristicCallbacks {
 	void onWrite(BLECharacteristic *pCharacteristic) {
@@ -176,31 +265,22 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 			ESP_LOGD(LOG_TAG, "*********");
 			ESP_LOGD(LOG_TAG, "New value: %.2x", value[0]);
 			ESP_LOGD(LOG_TAG, "*********");
+//			char val_clone[1];
+//			strncpy(val_clone, value.c_str(), 1);
 
-			//TODO push the received hex value into another queue which is checked by all routines continously for messages?
-			/*
-			 * That's a little hectic since there are two states,
-			 * one where somebody needs to start it cold
-			 * and one where somebody is midway through and receives an interrupt to go home
-			 * So a global "active" state needs to be maintained.
-			 *
-			 * Could detect which state was running, and if there is an active state, push messages into a special interrupt queue which is continously checked
-			 * so that way you can launch by calling the method and then interrupt them with the special ones (like home, probably)
-			 */
-
-			if ( active ){
-
-			} else {
-				//interpret the signal and call the appropriate method
-				if ( value.compare("A") == 0 ) {
+//			std::string val_clone = value.c_str();
+			char val_array[1];
+			strncpy(val_array, value.c_str(), 1);
+			printf("Trying to deal with value: %s\n", val_array);
+			// Sequence A should override all other sequences and goes into a special queue
+			if ( value.compare("A") == 0 ) {
+				if (active) {
+					xQueueSendToBack(sequence_interrupt_queue, &val_array, portMAX_DELAY);
+				} else {
 					sequence_home();
-				} else if ( value.compare("B") == 0 ) {
-					sequence_up_slow();
-				} else if ( value.compare("C") == 0 ) {
-					sequence_up_fast();
-				} else if ( value.compare("D") == 0 ) {
-					sequence_tremors();
 				}
+			} else {
+				xQueueSendToBack(ble_to_servo_queue, &val_array, portMAX_DELAY);
 			}
 		}
 	}
@@ -245,6 +325,8 @@ void app_main(void)
 	//1. mcpwm gpio initialization
 	mcpwm_example_gpio_initialize();
 	sequence_interrupt_queue = xQueueCreate(10, sizeof(uint32_t));
+	ble_to_servo_queue = xQueueCreate(10, sizeof(uint32_t));
+	xTaskCreate(servo_controller, "servo_controller", 2048, NULL, 10, NULL);
 
 	//2. initial mcpwm configuration
 	printf("Configuring Initial Parameters of mcpwm......\n");
