@@ -40,7 +40,7 @@ static BLEUUID    charUUID("4c7a3456-6ac2-4e16-9951-028dc32c443c");
 #define ESP_INTR_FLAG_DEFAULT 0
 
 #define GPIO_NC GPIO_NUM_4
-#define GPIO_NO GPIO_NUM_5
+#define GPIO_NO GPIO_NUM_18
 #define GPIO_INPUT_PIN_SEL ((1<<GPIO_NO) | (1<<GPIO_NC))
 
 //queue to hear all button noise
@@ -253,30 +253,6 @@ void app_main(void)
 	pBLEScan->setActiveScan(true);
 	pBLEScan->start(30);
 }
-
-
-/*
-
-	INTERRUPT PATTERNS AND BEHAVIORS:
-A 	1 button depression (with 3 sec appx)- this is the “reset”, sends the tie back to it’s natural vertical state
- 		PROBABLY: press continuously for 1 second and then release. From 1 second to let's say 3, there is a dead window.
- 				  after which we enter into D
-B	2  quick depressions- this sends the tie fairly slowly into a half erect state where the base in now horizontal
- B1      -> 2 button depressions would make the tip flip up and stay (make it wave first?)
-C	3 quick depressions- basically the same as 2 depressions, just done quickly
-D	1 button press and hold- this sends the tie into “tremors” for appx 3 sec where is just sorta wiggles back and forth.
-
-	THINGS TO DETECT:
-	Long press for 1-3 seconds
-	Long press for 3+ seconds
-	2 quick depression (let's say each closed < 500ms with < 500ms between them)
-	3 quick depression (same spacing as 2)
-
-ALL OF THIS SUCKS MY ASS BECAUSE OF THE NEED TO DEBOUNCE THE ACTUAL SWITCH
-
-
- */
-
 
 
 

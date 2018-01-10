@@ -43,8 +43,8 @@ static xQueueHandle sequence_interrupt_queue = NULL;
 #define SERVICE_UUID        "6d124ed1-50f5-4ebf-b490-c3db81cbaa8c"
 #define CHARACTERISTIC_UUID "4c7a3456-6ac2-4e16-9951-028dc32c443c"
 
-#define MAIN_SERVO_GPIO 18
-#define TIP_SERVO_GPIO 19
+#define MAIN_SERVO_GPIO 18 //green, right on the front
+#define TIP_SERVO_GPIO 19  //white, left on the front
 
 static void mcpwm_example_gpio_initialize()
 {
