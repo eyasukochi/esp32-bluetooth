@@ -37,6 +37,10 @@ void app_main(void);
 #define SERVO_MAX_PULSEWIDTH 2250 //Maximum pulse width in microsecond
 #define SERVO_MAX_DEGREE 2000 //Maximum angle in degree upto which servo can rotate
 
+#define SERVO_TIP_MIN_PULSEWIDTH 500 //Minimum pulse width in microsecond
+#define SERVO_TIP_MAX_PULSEWIDTH 2000 //Maximum pulse width in microsecond
+#define SERVO_TIP_MAX_DEGREE 1000 //Maximum angle in degree upto which servo can rotate
+
 static xQueueHandle ble_to_servo_queue = NULL;
 static xQueueHandle sequence_interrupt_queue = NULL;
 
@@ -50,8 +54,29 @@ static void mcpwm_example_gpio_initialize()
 {
     printf("initializing mcpwm servo control gpio......\n");
     mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, MAIN_SERVO_GPIO);    //Set GPIO 18 as PWM0A, to which servo is connected
-//    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, TIP_SERVO_GPIO);     //Set GPIO 19 as PWM0B, to which tip servo is connected
+    mcpwm_gpio_init(MCPWM_UNIT_1, MCPWM0A, TIP_SERVO_GPIO);     //Set GPIO 19 as PWM0A, to which tip servo is connected
 }
+
+
+/*
+ *
+ 	MAIN CAPTURED flat at:
+	pulse width: 2132us
+	pulse width: 2133us
+	Angle of rotation: 1851
+
+	MAIN CAPTURED UP at around:
+	370-376 degrees, 986-992us
+
+	TIP CAPTURED FLAT at:
+	like 0 degrees, apparently....
+	about 500us maybe
+
+	TIP CAPTURED UP at:
+	about 1455us, 635 degrees as of the latest iteration
+
+ *
+ */
 
 /**
  * @brief Use this function to calcute pulse width for per degree rotation
@@ -61,36 +86,19 @@ static void mcpwm_example_gpio_initialize()
  * @return
  *     - calculated pulse width
  */
-static uint32_t servo_per_degree_init(uint32_t degree_of_rotation)
+static uint32_t main_servo_per_degree_init(uint32_t degree_of_rotation)
 {
     uint32_t cal_pulsewidth = 0;
     cal_pulsewidth = (SERVO_MIN_PULSEWIDTH + (((SERVO_MAX_PULSEWIDTH - SERVO_MIN_PULSEWIDTH) * (degree_of_rotation)) / (SERVO_MAX_DEGREE)));
     return cal_pulsewidth;
 }
 
-//static void run_forward()
-//{
-//	printf("Trying to run forward\n");
-//	uint32_t angle, count;
-//	for (count = 0; count < SERVO_MAX_DEGREE; count++) {
-////		printf("Angle of rotation: %d\n", count);
-//		angle = servo_per_degree_init(count);
-////		printf("pulse width: %dus\n", angle);
-//		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
-//		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-//	}
-//}
-//
-//static void run_backward()
-//{
-//	printf("Trying to run back\n");
-//	uint32_t angle;
-//	angle = servo_per_degree_init(10);
-////	printf("pulse width: %dus\n", angle);
-//	// probably don't iterate just jump back to flat, so figure out whatever that value is?
-//	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
-//	vTaskDelay(5);
-//}
+static uint32_t tip_servo_per_degree_init(uint32_t degree_of_rotation)
+{
+    uint32_t cal_pulsewidth = 0;
+    cal_pulsewidth = (SERVO_TIP_MIN_PULSEWIDTH + (((SERVO_TIP_MAX_PULSEWIDTH - SERVO_TIP_MIN_PULSEWIDTH) * (degree_of_rotation)) / (SERVO_TIP_MAX_DEGREE)));
+    return cal_pulsewidth;
+}
 
 //TODO active should probably something more sophisticated and thread-safe but whatever
 static int active = false;
@@ -103,8 +111,8 @@ static void sequence_tip_down()
 	// TODO
 //	uint32_t angle;
 //	angle = servo_per_degree_init(10);
-//	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
-//	vTaskDelay(5);
+	mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_B, 0); //0 based on testing
+	vTaskDelay(5);
 }
 
 // go home
@@ -113,11 +121,11 @@ static void sequence_home()
 	state = 0;
 
 	printf("Trying to run back\n");
-	uint32_t angle;
-	angle = servo_per_degree_init(10);
-	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+//	uint32_t angle;
+//	angle = main_servo_per_degree_init(10);
+	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 2051); //1951 based on testing
 	vTaskDelay(5);
-//	sequence_tip_down();
+	sequence_tip_down();
 }
 
 static bool check_if_i_should_go_home()
@@ -142,11 +150,11 @@ static void sequence_up_slow()
 
 	printf("Trying to go up slow\n");
 	uint32_t angle, count;
-	for (count = 0; count < SERVO_MAX_DEGREE; count++) {
+	for (count = 376; count > 0; count--) {
 		if (check_if_i_should_go_home()) {
 			break;
 		}
-		angle = servo_per_degree_init(count);
+		angle = main_servo_per_degree_init(count);
 		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
 		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
 	}
@@ -159,15 +167,16 @@ static void sequence_up_fast()
 	state = 20;
 
 	printf("Trying to go up fast\n");
-	uint32_t angle, count;
-	for (count = 0; count < 1500; count++) { //guess at better max degree
-		if (check_if_i_should_go_home()) {
-			break;
-		}
-		angle = servo_per_degree_init(count);
-		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+//	uint32_t angle, count;
+	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 986); //arbitrary based on testing
+//	for (count = 0; count < 1500; count++) { //guess at better max degree
+//		if (check_if_i_should_go_home()) {
+//			break;
+//		}
+//		angle = main_servo_per_degree_init(count);
+//		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
 		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-	}
+//	}
 
 }
 
@@ -175,17 +184,17 @@ static void sequence_tip_up()
 {
 	state = 12;
 	//TODO
-//	printf("Trying to flip the tip up\n");
-//	//TODO make this a waggle that then stays up
-//	uint32_t angle, count;
-//	for (count = 0; count < SERVO_MAX_DEGREE; count++) {
-//		if (check_if_i_should_go_home()) {
-//			break;
-//		}
-//		angle = servo_per_degree_init(count);
-//		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
-//		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-//	}
+	printf("Trying to flip the tip up\n");
+	//TODO make this a waggle that then stays up
+	uint32_t angle, count;
+	for (count = 0; count < 635; count++) { //635 is arbitrary by testing
+		if (check_if_i_should_go_home()) {
+			break;
+		}
+		angle = tip_servo_per_degree_init(count);
+		mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+	}
 }
 
 // tremors
@@ -312,7 +321,7 @@ static void run() {
 	BLEAdvertisementData pAdvertisementData;
 	pAdvertisementData.setCompleteServices(BLEUUID(SERVICE_UUID));
 	pAdvertisementData.setName("A_Great_Advertisement");
-	pAdvertisementData.setManufacturerData("F_YO_SELF");
+	pAdvertisementData.setManufacturerData("datadatadata");
 	pAdvertising->setAdvertisementData(pAdvertisementData);
 
 	pAdvertising->start();
@@ -321,6 +330,7 @@ static void run() {
 
 void app_main(void)
 {
+
 
 	//1. mcpwm gpio initialization
 	mcpwm_example_gpio_initialize();
@@ -336,8 +346,8 @@ void app_main(void)
 	pwm_config.cmpr_b = 0;    //duty cycle of PWMxb = 0
 	pwm_config.counter_mode = MCPWM_UP_COUNTER;
 	pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
-	mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);    //Configure PWM0A & PWM0B with above settings
-
+	mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);    //Configure first servo with above settings
+	mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config);    //Configure second servo with above settings
 
 	run();
 } // app_main
