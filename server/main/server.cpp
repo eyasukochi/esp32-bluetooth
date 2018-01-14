@@ -90,6 +90,7 @@ static uint32_t main_servo_per_degree_init(uint32_t degree_of_rotation)
 {
     uint32_t cal_pulsewidth = 0;
     cal_pulsewidth = (SERVO_MIN_PULSEWIDTH + (((SERVO_MAX_PULSEWIDTH - SERVO_MIN_PULSEWIDTH) * (degree_of_rotation)) / (SERVO_MAX_DEGREE)));
+    // 986 = (700 + (((2250 - 700) * (degree_of_rotation)) / (2000)))
     return cal_pulsewidth;
 }
 
@@ -100,6 +101,26 @@ static uint32_t tip_servo_per_degree_init(uint32_t degree_of_rotation)
     return cal_pulsewidth;
 }
 
+static void start_tip()
+{
+	mcpwm_start(MCPWM_UNIT_1, MCPWM_TIMER_0);
+}
+
+static void stop_tip()
+{
+	mcpwm_stop(MCPWM_UNIT_1, MCPWM_TIMER_0);
+}
+
+static void set_tip_in_us(uint32_t us)
+{
+	mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, us);
+}
+
+static void set_main_in_us(uint32_t us)
+{
+	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, us);
+}
+
 //TODO active should probably something more sophisticated and thread-safe but whatever
 static int active = false;
 // Integer to track the current behavior state
@@ -108,11 +129,13 @@ static int state = -1;
 
 static void sequence_tip_down()
 {
-	// TODO
-//	uint32_t angle;
-//	angle = servo_per_degree_init(10);
-	mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_B, 0); //0 based on testing
-	vTaskDelay(5);
+	start_tip();
+//	mcpwm_start(MCPWM_UNIT_1, MCPWM_TIMER_0);
+	set_tip_in_us(550);
+//	mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, 550); //guessing at tweaking taht value
+	vTaskDelay(200);
+	stop_tip();
+//	mcpwm_stop(MCPWM_UNIT_1, MCPWM_TIMER_0);
 }
 
 // go home
@@ -123,7 +146,8 @@ static void sequence_home()
 	printf("Trying to run back\n");
 //	uint32_t angle;
 //	angle = main_servo_per_degree_init(10);
-	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 2051); //1951 based on testing
+	set_main_in_us(2151);
+//	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 2151); //number based on testing
 	vTaskDelay(5);
 	sequence_tip_down();
 }
@@ -149,13 +173,14 @@ static void sequence_up_slow()
 	state = 10;
 
 	printf("Trying to go up slow\n");
-	uint32_t angle, count;
-	for (count = 376; count > 0; count--) {
+	// needs to go from 2151us to 986us in some kind of normal amount, possibly just step in five degree increments?
+	uint32_t angle;//, count;
+	for (angle = 2151; angle >= 986; angle -= 5) {
 		if (check_if_i_should_go_home()) {
 			break;
 		}
-		angle = main_servo_per_degree_init(count);
-		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+		set_main_in_us(angle);
+//		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
 		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
 	}
 
@@ -165,44 +190,65 @@ static void sequence_up_slow()
 static void sequence_up_fast()
 {
 	state = 20;
-
 	printf("Trying to go up fast\n");
-//	uint32_t angle, count;
-	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 986); //arbitrary based on testing
-//	for (count = 0; count < 1500; count++) { //guess at better max degree
-//		if (check_if_i_should_go_home()) {
-//			break;
-//		}
-//		angle = main_servo_per_degree_init(count);
-//		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
-		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-//	}
-
+	set_main_in_us(986);
+//	mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 986); //arbitrary based on testing
 }
 
 static void sequence_tip_up()
 {
 	state = 12;
-	//TODO
-	printf("Trying to flip the tip up\n");
-	//TODO make this a waggle that then stays up
-	uint32_t angle, count;
-	for (count = 0; count < 635; count++) { //635 is arbitrary by testing
-		if (check_if_i_should_go_home()) {
-			break;
-		}
-		angle = tip_servo_per_degree_init(count);
-		mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
-		vTaskDelay(5);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-	}
+	printf("Trying to flip the tip up v5\n");
+	start_tip();
+//	mcpwm_start(MCPWM_UNIT_1, MCPWM_TIMER_0);
+	set_tip_in_us(1200);
+//	mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, 1200);
+	vTaskDelay(200);
+	set_tip_in_us(600);
+//	mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, 600);
+	vTaskDelay(200);
+	set_tip_in_us(1455);
+//	mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, 1455);
+	vTaskDelay(200); //give time for value to be written before shutting down
+	stop_tip();
+//	mcpwm_stop(MCPWM_UNIT_1, MCPWM_TIMER_0);
+}
+
+static void tremor_block()
+{
+	set_main_in_us(1800);
+	vTaskDelay(100);
+	set_tip_in_us(950);
+	vTaskDelay(100);
+
+	set_main_in_us(2000);
+	vTaskDelay(100);
+	set_tip_in_us(650);
+	vTaskDelay(100);
+
+	set_main_in_us(1900);
+	vTaskDelay(100);
+	set_tip_in_us(800);
+	vTaskDelay(100);
 }
 
 // tremors
 static void sequence_tremors()
 {
 	state = 30;
+	//first go home, then try for some sort of periodic wave through main and tip
+	sequence_home();
+	vTaskDelay(100);
 
-	//TODO I DON'T KNOW
+	start_tip();
+	for (int i = 0; i<5; i++)
+	{
+		tremor_block();
+	}
+	stop_tip();
+
+	//finish by restoring
+	sequence_home();
 }
 
 static void servo_controller(void *arg)
@@ -210,7 +256,7 @@ static void servo_controller(void *arg)
 
 	// Manages the operation graph
 	printf("servo_controller started up\n");
-	int state = -1; //tracks last executed state for operation graph
+//	int state = -1; //tracks last executed state for operation graph
 
 //	std::string value;
 	char value[1];
@@ -219,7 +265,7 @@ static void servo_controller(void *arg)
 		xQueueReceive(ble_to_servo_queue, &value, portMAX_DELAY);
 		printf("servo_controller message received:  %s\n", value);
 		//interpret the signal and call the appropriate method
-
+		printf("I think state is: %d\n", state);
 		if ( value[0] == 'A' )  {
 			sequence_home();
 		} else if ( value[0] == 'B' ) {
@@ -251,19 +297,6 @@ C(20)	3 quick depressions- basically the same as 2 depressions, just done quickl
 D(30)	1 button press and hold- this sends the tie into “tremors” for appx 3 sec where is just sorta wiggles back and forth.
 
 
- */
-
-
-
-//TODO push the received hex value into another queue which is checked by all routines continously for messages?
-/*
- * That's a little hectic since there are two states,
- * one where somebody needs to start it cold
- * and one where somebody is midway through and receives an interrupt to go home
- * So a global "active" state needs to be maintained.
- *
- * Could detect which state was running, and if there is an active state, push messages into a special interrupt queue which is continously checked
- * so that way you can launch by calling the method and then interrupt them with the special ones (like home, probably)
  */
 
 
