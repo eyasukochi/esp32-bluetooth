@@ -1,0 +1,96 @@
+I think there were 1 button pushes
+writing A
+short press finished
+I think there were 1 button pushes
+writing A
+E (30387) BT: bta_gattc_conn_cback() - cif=3 connected=0 conn_id=3 reason=0x0008
+short press finished
+I think there were 1 button pushes
+writing A
+E (34064) BLERemoteCharacteristic: Disconnected
+abort() was called at PC 0x400e8287 on core 0
+0x400e8287: std::string::erase(unsigned int, unsigned int) at /builds/idf/crosstool-NG/.build/xtensa-esp32-elf/build/build-cc-gcc-final/xtensa-esp32-elf/libstdc++-v3/include/bits/basic_string.h:4529
+
+
+Backtrace: 0x40089514:0x3ffdd2e0 0x40089613:0x3ffdd300 0x400e8287:0x3ffdd320 0x400e82ce:0x3ffdd340 0x400e6c63:0x3ffdd360 0x4010490e:0x3ffdd380 0x400d3af6:0x3ffdd3e0 0x401033f6:0x3ffdd4b0
+0x40089514: esp_panic_wdt_start at /home/ellison/esp/esp-idf/components/esp32/./panic.c:572
+
+0x40089613: commonErrorHandler at /home/ellison/esp/esp-idf/components/esp32/./panic.c:572
+
+0x400e8287: std::string::erase(unsigned int, unsigned int) at /builds/idf/crosstool-NG/.build/xtensa-esp32-elf/build/build-cc-gcc-final/xtensa-esp32-elf/libstdc++-v3/include/bits/basic_string.h:4529
+
+0x400e82ce: std::string::_M_replace_aux(unsigned int, unsigned int, unsigned int, char) at /builds/idf/crosstool-NG/.build/xtensa-esp32-elf/build/build-cc-gcc-final/xtensa-esp32-elf/libstdc++-v3/include/bits/basic_string.h:4529
+
+0x400e6c63: read_encoded_value_with_base(unsigned char, unsigned int, unsigned char const*, unsigned int*) at /builds/idf/crosstool-NG/.build/src/gcc-5.2.0/libstdc++-v3/../libgcc/unwind-pe.h:252
+
+0x4010490e: BLEUtils::dumpGapEvent(esp_gap_ble_cb_event_t, esp_ble_gap_cb_param_t*) at /home/ellison/projects/esp32-bluetooth/server/components/cpp_utils/./BLEUtils.cpp:1358
+
+0x400d3af6: heap_caps_init at /home/ellison/esp/esp-idf/components/heap/./heap_caps_init.c:107
+
+0x401033f6: BLEUtils::advTypeToString(unsigned char) at /home/ellison/projects/esp32-bluetooth/server/components/cpp_utils/./BLEUtils.cpp:838
+
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+
+-------------------------------------------
+
+
+E (70755) BT: bta_gattc_conn_cback() - cif=3 connected=0 conn_id=3 reason=0x0008
+E (74798) BLERemoteCharacteristic: Disconnected
+abort() was called at PC 0x400e7fbb on core 0
+0x400e7fbb: __cxxabiv1::__terminate(void (*)()) at /builds/idf/crosstool-NG/.build/src/gcc-5.2.0/libstdc++-v3/libsupc++/eh_terminate.cc:112
+
+
+Backtrace: 0x40089514:0x3ffdd310 0x40089613:0x3ffdd330 0x400e7fbb:0x3ffdd350 0x400e8002:0x3ffdd370 0x400e6997:0x3ffdd390 0x4010403a:0x3ffdd3b0 0x400d3a89:0x3ffdd410 0x40102b22:0x3ffdd4b0
+0x40089514: invoke_abort at /home/ellison/esp/esp-idf/components/esp32/./panic.c:572
+
+0x40089613: abort at /home/ellison/esp/esp-idf/components/esp32/./panic.c:572
+
+0x400e7fbb: __cxxabiv1::__terminate(void (*)()) at /builds/idf/crosstool-NG/.build/src/gcc-5.2.0/libstdc++-v3/libsupc++/eh_terminate.cc:112
+
+0x400e8002: std::terminate() at /builds/idf/crosstool-NG/.build/src/gcc-5.2.0/libstdc++-v3/libsupc++/eh_terminate.cc:112
+
+0x400e6997: __cxa_throw at /builds/idf/crosstool-NG/.build/src/gcc-5.2.0/libstdc++-v3/libsupc++/eh_throw.cc:87
+
+0x4010403a: BLERemoteCharacteristic::writeValue(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, bool) at /home/ellison/projects/esp32-bluetooth/client/components/cpp_utils/./BLERemoteCharacteristic.cpp:369
+
+0x400d3a89: MyClient::run(void*) at /home/ellison/projects/esp32-bluetooth/client/main/./client.cpp:177 (discriminator 2)
+
+0x40102b22: Task::runTask(void*) at /home/ellison/projects/esp32-bluetooth/client/components/cpp_utils/./Task.cpp:58
+
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+
+----------------------------------------------------------
+
+E (172786) BT: bta_gattc_conn_cback() - cif=3 connected=0 conn_id=3 reason=0x0008
+E (174328) BLERemoteCharacteristic: Disconnected
+abort() was called at PC 0x400e7fbb on core 0
+0x400e7fbb: __cxxabiv1::__terminate(void (*)()) at /builds/idf/crosstool-NG/.build/src/gcc-5.2.0/libstdc++-v3/libsupc++/eh_terminate.cc:112
+
+
+Backtrace: 0x40089514:0x3ffdd310 0x40089613:0x3ffdd330 0x400e7fbb:0x3ffdd350 0x400e8002:0x3ffdd370 0x400e6997:0x3ffdd390 0x4010403a:0x3ffdd3b0 0x400d3a4d:0x3ffdd410 0x40102b22:0x3ffdd4b0
+0x40089514: invoke_abort at /home/ellison/esp/esp-idf/components/esp32/./panic.c:572
+
+0x40089613: abort at /home/ellison/esp/esp-idf/components/esp32/./panic.c:572
+
+0x400e7fbb: __cxxabiv1::__terminate(void (*)()) at /builds/idf/crosstool-NG/.build/src/gcc-5.2.0/libstdc++-v3/libsupc++/eh_terminate.cc:112
+
+0x400e8002: std::terminate() at /builds/idf/crosstool-NG/.build/src/gcc-5.2.0/libstdc++-v3/libsupc++/eh_terminate.cc:112
+
+0x400e6997: __cxa_throw at /builds/idf/crosstool-NG/.build/src/gcc-5.2.0/libstdc++-v3/libsupc++/eh_throw.cc:87
+
+0x4010403a: BLERemoteCharacteristic::writeValue(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, bool) at /home/ellison/projects/esp32-bluetooth/client/components/cpp_utils/./BLERemoteCharacteristic.cpp:369
+
+0x400d3a4d: MyClient::run(void*) at /home/ellison/projects/esp32-bluetooth/client/main/./client.cpp:174 (discriminator 2)
+
+0x40102b22: Task::runTask(void*) at /home/ellison/projects/esp32-bluetooth/client/components/cpp_utils/./Task.cpp:58
+
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+

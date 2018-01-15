@@ -77,7 +77,7 @@ static void short_counter(void *arg)
 					xQueueReceive(short_evt_queue, &event_tick, portMAX_DELAY);
 				}
 				messages_waiting = messages_waiting + 1;
-				printf("I think there were %d button pushes\n", messages_waiting);
+//				printf("I think there were %d button pushes\n", messages_waiting);
 				if ( messages_waiting < 4 ) { //4+ short presses would be noise
 					xQueueSendToBack(outgoing_queue, &messages_waiting, portMAX_DELAY);
 				}
@@ -94,7 +94,7 @@ static void gpio_task_example(void* arg)
 	uint32_t level_no = gpio_get_level(GPIO_NO);
 	bool button_state = false;
 	bool state = false;
-	printf("NC initially registered as: %d\n", level_nc);
+//	printf("NC initially registered as: %d\n", level_nc);
     for(;;) {
 
     	if(xQueueReceive(gpio_evt_nc_queue, &event_tick, portMAX_DELAY)) {
@@ -117,11 +117,11 @@ static void gpio_task_example(void* arg)
     				uint32_t elapsed = event_tick - begin_event_tick;
     				if ( elapsed > 10 && elapsed < 500 )
     				{
-    					printf("short press finished\n");
+//    					printf("short press finished\n");
     					xQueueSendToBack(short_evt_queue, &event_tick, portMAX_DELAY);
     				} else if ( elapsed >= 500 ){
     					// TODO launch (D)
-    					printf("long press finished\n");
+//    					printf("long press finished\n");
     					uint16_t msg_code = 4;
     					xQueueSendToBack(outgoing_queue, &msg_code, portMAX_DELAY);
     				}
@@ -149,7 +149,7 @@ class MyClient: public Task {
 		// Obtain a reference to the service we are after in the remote BLE server.
 		BLERemoteService* pRemoteService = pClient->getService(serviceUUID);
 		if (pRemoteService == nullptr) {
-			ESP_LOGW(LOG_TAG, "Failed to find our service UUID: %s", serviceUUID.toString().c_str());
+//			ESP_LOGW(LOG_TAG, "Failed to find our service UUID: %s", serviceUUID.toString().c_str());
 			return;
 		}
 
@@ -157,29 +157,29 @@ class MyClient: public Task {
 		// Obtain a reference to the characteristic in the service of the remote BLE server.
 		BLERemoteCharacteristic* pRemoteCharacteristic = pRemoteService->getCharacteristic(charUUID);
 		if (pRemoteCharacteristic == nullptr) {
-			ESP_LOGW(LOG_TAG, "Failed to find our characteristic UUID: %s", charUUID.toString().c_str());
+//			ESP_LOGW(LOG_TAG, "Failed to find our characteristic UUID: %s", charUUID.toString().c_str());
 			return;
 		}
 
 		// Read the value of the characteristic.
 		std::string value = pRemoteCharacteristic->readValue();
-		ESP_LOGW(LOG_TAG, "The characteristic value was: %s", value.c_str());
+//		ESP_LOGW(LOG_TAG, "The characteristic value was: %s", value.c_str());
 
 		uint16_t msg_code;
 		while(1) {
 //			// Just straight up block on this method until we get an interrupt message on the queue
 			xQueueReceive(outgoing_queue, &msg_code, portMAX_DELAY);
 			if (msg_code == 1) {
-				printf("writing A\n");
+//				printf("writing A\n");
 				pRemoteCharacteristic->writeValue("A");
 			} else if (msg_code == 2) {
-				printf("writing B\n");
+//				printf("writing B\n");
 				pRemoteCharacteristic->writeValue("B");
 			} else if (msg_code == 3) {
-				printf("writing C\n");
+//				printf("writing C\n");
 				pRemoteCharacteristic->writeValue("C");
 			} else if (msg_code == 4) {
-				printf("writing D\n");
+//				printf("writing D\n");
 				pRemoteCharacteristic->writeValue("D");
 			}
 		}
@@ -205,12 +205,12 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
 		if ( advertisedDevice.haveServiceUUID() ) {
 			BLEUUID id = advertisedDevice.getServiceUUID();
-			ESP_LOGW(LOG_TAG, "Evaluating Service ID: %s", id.toString().c_str());
+//			ESP_LOGW(LOG_TAG, "Evaluating Service ID: %s", id.toString().c_str());
 		}
 		if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
 			advertisedDevice.getScan()->stop();
 
-			ESP_LOGW(LOG_TAG, "Found our device!  address: %s", advertisedDevice.getAddress().toString().c_str());
+//			ESP_LOGW(LOG_TAG, "Found our device!  address: %s", advertisedDevice.getAddress().toString().c_str());
 			MyClient* pMyClient = new MyClient();
 			pMyClient->setStackSize(18000);
 			pMyClient->start(new BLEAddress(*advertisedDevice.getAddress().getNative()));
