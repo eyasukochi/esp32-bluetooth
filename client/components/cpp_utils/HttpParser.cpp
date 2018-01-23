@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include "HttpParser.h"
 #include "HttpRequest.h"
+#include "GeneralUtils.h"
 
 #include <esp_log.h>
 
@@ -33,21 +34,6 @@
 static const char* LOG_TAG = "HttpParser";
 
 static std::string lineTerminator = "\r\n";
-
-
-/**
- * @brief Remove white space from a string.
- */
-static std::string trim(const std::string& str)
-{
-    size_t first = str.find_first_not_of(' ');
-    if (std::string::npos == first)
-    {
-        return str;
-    }
-    size_t last = str.find_last_not_of(' ');
-    return str.substr(first, (last - first + 1));
-} // trim
 
 
 /**
@@ -113,19 +99,18 @@ static std::string toCharToken(std::string::iterator &it, std::string &str, char
  */
 std::pair<std::string, std::string> parseHeader(std::string &line) {
 	auto it    = line.begin();
-	auto name  = toCharToken(it, line, ':');
-	auto value = trim(toStringToken(it, line, lineTerminator));
+	std::string name  = toCharToken(it, line, ':'); // Parse the line until we find a ':'
+	// We normalize the header name to be lower case.
+	GeneralUtils::toLower(name);
+	auto value = GeneralUtils::trim(toStringToken(it, line, lineTerminator));
 	return std::pair<std::string, std::string>(name, value);
 } // parseHeader
 
 
 HttpParser::HttpParser() {
-	// TODO Auto-generated constructor stub
-
 }
 
 HttpParser::~HttpParser() {
-	// TODO Auto-generated destructor stub
 }
 
 
@@ -148,17 +133,25 @@ std::string HttpParser::getBody() {
 }
 
 
+/**
+ * @brief Retrieve the value of the named header.
+ * @param [in] name The name of the header to retrieve.
+ * @return The value of the named header or null if not present.
+ */
 std::string HttpParser::getHeader(const std::string& name) {
-	if (!hasHeader(name)) {
+	// We normalize the header name to be lower case.
+	std::string localName = name;
+	GeneralUtils::toLower(localName);
+	if (!hasHeader(localName)) {
 		return "";
 	}
-	return m_headers.at(name);
-}
+	return m_headers.at(localName);
+} // getHeader
 
 
 std::map<std::string, std::string> HttpParser::getHeaders() {
 	return m_headers;
-}
+} // getHeaders
 
 
 std::string HttpParser::getMethod() {
@@ -182,7 +175,9 @@ std::string HttpParser::getVersion() {
  * @return True if the header is present and false otherwise.
  */
 bool HttpParser::hasHeader(const std::string& name) {
-	return m_headers.find(name) != m_headers.end();
+	// We normalize the header name to be lower case.
+	std::string localName = name;
+	return m_headers.find(GeneralUtils::toLower(localName)) != m_headers.end();
 } // hasHeader
 
 
@@ -191,6 +186,7 @@ bool HttpParser::hasHeader(const std::string& name) {
  * @param [in] s The socket from which to retrieve data.
  */
 void HttpParser::parse(Socket s) {
+	ESP_LOGD(LOG_TAG, ">> parse: socket: %s", s.toString().c_str());
 	std::string line;
 	line = s.readToDelim(lineTerminator);
 	parseRequestLine(line);
@@ -201,6 +197,7 @@ void HttpParser::parse(Socket s) {
 	}
 	// Only PUT and POST requests have a body
 	if (getMethod() != "POST" && getMethod() != "PUT") {
+		ESP_LOGD(LOG_TAG, "<< parse");
 		return;
 	}
 
@@ -218,7 +215,7 @@ void HttpParser::parse(Socket s) {
 		int rc = s.receive(data, sizeof(data));
 		m_body = std::string((char *)data, rc);
 	}
-	ESP_LOGD(LOG_TAG, "Size of body: %d", m_body.length());
+	ESP_LOGD(LOG_TAG, "<< parse: Size of body: %d", m_body.length());
 } // parse
 
 

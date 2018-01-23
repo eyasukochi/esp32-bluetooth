@@ -7,7 +7,7 @@
 #include "sdkconfig.h"
 #if defined(CONFIG_BT_ENABLED)
 #include <esp_log.h>
-#include <bt.h>
+#include <esp_bt.h>
 #include <esp_bt_main.h>
 #include <esp_gap_ble_api.h>
 #include <esp_gattc_api.h>
@@ -167,7 +167,6 @@ void BLEClient::gattClientEventHandler(
 				m_isConnected = false;
 				break;
 		} // ESP_GATTC_DISCONNECT_EVT
-
 
 		//
 		// ESP_GATTC_OPEN_EVT

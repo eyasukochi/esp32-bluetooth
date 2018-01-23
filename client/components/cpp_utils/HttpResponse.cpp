@@ -5,6 +5,7 @@
  *      Author: kolban
  */
 #include <sstream>
+#include <fstream>
 #include "HttpRequest.h"
 #include "HttpResponse.h"
 #include <esp_log.h>
@@ -88,9 +89,10 @@ std::map<std::string, std::string> HttpResponse::getHeaders() {
  * @param [in] data The data to send to the partner.
  */
 void HttpResponse::sendData(std::string data) {
+	ESP_LOGD(LOG_TAG, ">> sendData");
 	// If the request is already closed, nothing further to do.
 	if (m_request->isClosed()) {
-		ESP_LOGE(LOG_TAG, "Request to send more data but the request/response is already closed");
+		ESP_LOGE(LOG_TAG, "<< sendData: Request to send more data but the request/response is already closed");
 		return;
 	}
 
@@ -101,8 +103,57 @@ void HttpResponse::sendData(std::string data) {
 
 	// Send the payload data.
 	m_request->getSocket().send(data);
+	ESP_LOGD(LOG_TAG, "<< sendData");
 } // sendData
 
+void HttpResponse::sendData(uint8_t* pData, size_t size) {
+	ESP_LOGD(LOG_TAG, ">> sendData: 0x%x, size: %d", (uint32_t) pData, size);
+	// If the request is already closed, nothing further to do.
+	if (m_request->isClosed()) {
+		ESP_LOGE(LOG_TAG, "<< sendData: Request to send more data but the request/response is already closed");
+		return;
+	}
+
+	// If we haven't yet sent the header of the data, send that now.
+	if (m_headerCommitted == false) {
+		sendHeader();
+	}
+
+	// Send the payload data.
+	m_request->getSocket().send(pData, size);
+	ESP_LOGD(LOG_TAG, "<< sendData");
+} // sendData
+
+void HttpResponse::sendFile(std::string fileName, size_t bufSize)
+{
+	ESP_LOGI(LOG_TAG, "Opening file: %s", fileName.c_str());
+	std::ifstream ifStream;
+	ifStream.open(fileName, std::ifstream::in | std::ifstream::binary);      // Attempt to open the file for reading.
+	
+	// If we failed to open the requested file, then it probably didn't exist so return a not found.
+	if (!ifStream.is_open()) {
+		ESP_LOGE(LOG_TAG, "Unable to open file %s for reading", fileName.c_str());
+		setStatus(HttpResponse::HTTP_STATUS_NOT_FOUND, "Not Found");
+		addHeader(HttpRequest::HTTP_HEADER_CONTENT_TYPE, "text/plain");
+		sendData("Not Found");
+		close();
+		return; // Since we failed to open the file, no further work to be done.
+	}
+	
+	// We now have an open file and want to push the content of that file through to the browser.
+	// because of defect #252 we have to do some pretty important re-work here.  Specifically, we can't host the whole file in
+	// RAM at one time.  Instead what we have to do is ensure that we only have enough data in RAM to be sent.
+	
+	setStatus(HttpResponse::HTTP_STATUS_OK, "OK");
+	uint8_t *pData = new uint8_t[bufSize];
+	while(!ifStream.eof()) {
+		ifStream.read((char *)pData, bufSize);
+		sendData(pData, ifStream.gcount());
+	}
+	delete[] pData;
+	ifStream.close();
+	close();
+} // sendFile
 
 /**
  * @brief Send the header
@@ -137,4 +188,5 @@ void HttpResponse::setStatus(const int status, const std::string message) {
 	m_status        = status;
 	m_statusMessage = message;
 } // setStatus
+
 

@@ -8,10 +8,10 @@
 #include "sdkconfig.h"
 #if defined(CONFIG_BT_ENABLED)
 #include <esp_log.h>
-#include <bt.h>
+#include <esp_bt.h>
 #include <esp_bt_main.h>
 #include <esp_gap_ble_api.h>
-#include <esp_gatts_api.h>
+//#include <esp_gatts_api.h>
 #include "BLEDevice.h"
 #include "BLEServer.h"
 #include "BLEService.h"
@@ -151,6 +151,7 @@ void BLEServer::handleGAPEvent(
 			*/
 			break;
 		}
+
 		default:
 			break;
 	}
@@ -236,7 +237,7 @@ void BLEServer::handleGATTServerEvent(
 			if (m_pServerCallbacks != nullptr) {         // If we have callbacks, call now.
 				m_pServerCallbacks->onDisconnect(this);
 			}
-			// startAdvertising(); - do this with some delay from the loop() 
+			startAdvertising(); //- do this with some delay from the loop()
 			break;
 		} // ESP_GATTS_DISCONNECT_EVT
 
@@ -340,6 +341,7 @@ void BLEServerCallbacks::onConnect(BLEServer* pServer) {
 	ESP_LOGD("BLEServerCallbacks", "Device: %s", BLEDevice::toString().c_str());
 	ESP_LOGD("BLEServerCallbacks", "<< onConnect()");
 } // onConnect
+
 
 void BLEServerCallbacks::onDisconnect(BLEServer* pServer) {
 	ESP_LOGD("BLEServerCallbacks", ">> onDisconnect(): Default");

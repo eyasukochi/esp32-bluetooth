@@ -13,7 +13,6 @@
 #include "BLEUUID.h"
 #include <vector>
 
-
 /**
  * @brief Advertisement data set by the programmer to be published by the %BLE server.
  */
@@ -28,6 +27,7 @@ public:
 	void setManufacturerData(std::string data);
 	void setName(std::string name);
 	void setPartialServices(BLEUUID uuid);
+	void setServiceData(BLEUUID uuid, std::string data);
 	void setShortName(std::string name);
 
 private:
@@ -53,6 +53,7 @@ public:
 	void stop();
 	void setAppearance(uint16_t appearance);
 	void setAdvertisementData(BLEAdvertisementData& advertisementData);
+	void setScanFilter(bool scanRequertWhitelistOnly, bool connectWhitelistOnly);
 	void setScanResponseData(BLEAdvertisementData& advertisementData);
 
 private:

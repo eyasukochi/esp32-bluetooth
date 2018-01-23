@@ -158,7 +158,7 @@ private:
 				case OPCODE_BINARY: {
 					if (pWebSocketHandler != nullptr) {
 						WebSocketInputStreambuf streambuf(pWebSocket->getSocket(), payloadLen, frame.mask==1?mask:nullptr);
-						pWebSocketHandler->onMessage(&streambuf);
+						pWebSocketHandler->onMessage(&streambuf, pWebSocket);
 						//streambuf.discard();
 					}
 					break;
@@ -203,7 +203,8 @@ private:
  * If no over-riding handler is provided for the "close" event, this method is called.
  */
 void WebSocketHandler::onClose() {
-	ESP_LOGD("WebSocketHandler", ">> WebSocketHandler:onClose()");
+	ESP_LOGD("WebSocketHandler", ">> onClose");
+	ESP_LOGD("WebSocketHandler", "<< onClose");
 } // onClose
 
 
@@ -217,8 +218,9 @@ void WebSocketHandler::onClose() {
  * ```
  * This will read the whole message into the string stream.
  */
-void WebSocketHandler::onMessage(WebSocketInputStreambuf* pWebSocketInputStreambuf) {
-	ESP_LOGD("WebSocketHandler", ">> onMessage")
+void WebSocketHandler::onMessage(WebSocketInputStreambuf* pWebSocketInputStreambuf, WebSocket *pWebSocket) {
+	ESP_LOGD("WebSocketHandler", ">> onMessage");
+	ESP_LOGD("WebSocketHandler", "<< onMessage");
 } // onData
 
 
@@ -227,7 +229,8 @@ void WebSocketHandler::onMessage(WebSocketInputStreambuf* pWebSocketInputStreamb
  * If no over-riding handler is provided for the "error" event, this method is called.
  */
 void WebSocketHandler::onError(std::string error) {
-	ESP_LOGD("WebSocketHandler", ">> WebSocketHandler:onError()");
+	ESP_LOGD("WebSocketHandler", ">> onError: %s", error.c_str());
+	ESP_LOGD("WebSocketHandler", "<< onError");
 } // onError
 
 
@@ -334,7 +337,7 @@ void WebSocket::send(std::string data, uint8_t sendType) {
 	} else {
 		frame.len = 126;
 		m_socket.send((uint8_t *)&frame, sizeof(frame));
-		m_socket.send((uint16_t)data.length());
+		m_socket.send(htons((uint16_t)data.length()));  // Convert to network byte order from host byte order
 	}
 	m_socket.send((uint8_t*)data.data(), data.length());
 	ESP_LOGD(LOG_TAG, "<< send");

@@ -33,6 +33,7 @@
 
 #include <sstream>
 #include <vector>
+#include <algorithm>
 #include "HttpResponse.h"
 #include "HttpRequest.h"
 #include "GeneralUtils.h"
@@ -96,11 +97,24 @@ HttpRequest::HttpRequest(Socket clientSocket) {
 
 	m_parser.parse(clientSocket); // Parse the socket stream to build the HTTP data.
 
+	// We have to take some special action on the Connection header.  We want to know if it contains "Upgrade"
+	// however it has come to light that the Connection header can contain multiple parts.  For example, it has
+	// been reported that it can contain "keep-alive,Upgrade".  Because of this we can't simply examine the string
+	// to see if it equals "Upgrade".  Our solution is to get the value of Connection string, split it by "," as
+	// a delimiter and then examine each of the parts to see if any of those are "Upgrade".
+	std::vector<std::string> parts = GeneralUtils::split(getHeader(HTTP_HEADER_CONNECTION), ',');
+	bool upgradeFound = false;
+	if (std::find(parts.begin(), parts.end(), "Upgrade") != parts.end())
+	{
+	  upgradeFound = true;
+	}
+
 	// Is this a Web Socket?
 	if (getMethod() == HTTP_METHOD_GET &&
 			!getHeader(HTTP_HEADER_HOST).empty() &&
 			getHeader(HTTP_HEADER_UPGRADE) == "websocket" &&
-			getHeader(HTTP_HEADER_CONNECTION) == "Upgrade" &&
+			//getHeader(HTTP_HEADER_CONNECTION) == "Upgrade" &&
+			upgradeFound == true &&
 			!getHeader(HTTP_HEADER_SEC_WEBSOCKET_KEY).empty() &&
 			!getHeader(HTTP_HEADER_SEC_WEBSOCKET_VERSION).empty()) {
 		ESP_LOGD(LOG_TAG, "Websocket detected!");
@@ -191,6 +205,7 @@ std::string HttpRequest::getPath() {
 
 #define STATE_NAME  0
 #define STATE_VALUE 1
+
 /**
  * @brief Get the query part of the request.
  * The query is a set of name = value pairs.  The return is a map keyed by the name items.
@@ -201,7 +216,15 @@ std::map<std::string, std::string> HttpRequest::getQuery() {
 	// Walk through all the characters in the query string maintaining a simple state machine
 	// that lets us know what we are parsing.
 	std::map<std::string, std::string> queryMap;
-	std::string queryString = "";
+
+	std::string possibleQueryString = getPath();
+	int qindex = possibleQueryString.find_first_of("?") ;
+	if (qindex < 0) {
+		ESP_LOGD(LOG_TAG, "No query string present") ;
+		return queryMap ;
+	}
+	std::string queryString = possibleQueryString.substr(qindex + 1, -1) ;
+	ESP_LOGD(LOG_TAG, "query string: %s", queryString.c_str()) ;
 
 	/*
 	 * We maintain a simple state machine with states of:

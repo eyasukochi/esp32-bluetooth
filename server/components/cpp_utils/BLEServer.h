@@ -18,6 +18,7 @@
 #include "BLEAdvertising.h"
 #include "BLECharacteristic.h"
 #include "BLEService.h"
+#include "BLESecurity.h"
 #include "FreeRTOS.h"
 
 class BLEServerCallbacks;

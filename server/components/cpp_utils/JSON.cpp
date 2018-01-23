@@ -190,6 +190,18 @@ std::string JsonArray::toString() {
 
 
 /**
+ * @brief Build an unformatted string representation.
+ * @return A string representation.
+ */
+std::string JsonArray::toStringUnformatted() {
+	char *data = cJSON_PrintUnformatted(m_node);
+	std::string ret(data);
+	free(data);
+	return ret;
+} // toStringUnformatted
+
+
+/**
  * @brief Get the number of elements from the array.
  * @return The int value that represents the number of elements.
  */
@@ -217,10 +229,7 @@ JsonArray JsonObject::getArray(std::string name) {
  */
 bool JsonObject::getBoolean(std::string name) {
 	cJSON *node = cJSON_GetObjectItem(m_node, name.c_str());
-	if (node->valueint == 0) {
-		return false;
-	}
-	return true;
+	return cJSON_IsTrue(node);
 } // getBoolean
 
 
@@ -304,7 +313,7 @@ void JsonObject::setArray(std::string name, JsonArray array) {
  * @return N/A.
  */
 void JsonObject::setBoolean(std::string name, bool value) {
-	cJSON_AddItemToObject(m_node, name.c_str(), cJSON_CreateBool(value));
+	cJSON_AddItemToObject(m_node, name.c_str(), value?cJSON_CreateTrue():cJSON_CreateFalse());
 } // setBoolean
 
 
@@ -363,3 +372,14 @@ std::string JsonObject::toString() {
 	return ret;
 } // toString
 
+
+/**
+ * @brief Build an unformatted string representation.
+ * @return A string representation.
+ */
+std::string JsonObject::toStringUnformatted() {
+	char *data = cJSON_PrintUnformatted(m_node);
+	std::string ret(data);
+	free(data);
+	return ret;
+} // toStringUnformatted

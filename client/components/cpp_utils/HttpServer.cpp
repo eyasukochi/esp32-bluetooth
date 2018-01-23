@@ -1,5 +1,10 @@
 /*
  * HttpServer.cpp
+ * Design:
+ * This class represents an HTTP server.  We create an instance of the class and then it is configured.
+ * When the user has completed the configuration, they execute the start() method which starts it running.
+ * A subsequent call to stop() will stop it.  When start() is called, a new task is created which listens
+ * for incoming messages.
  *
  *  Created on: Aug 30, 2017
  *      Author: kolban
@@ -20,56 +25,18 @@ static const char* LOG_TAG = "HttpServer";
 
 #undef close
 
-/**
- * Send a directory listing back to the browser.
- * @param [in] path The path of the directory to list.
- * @param [in] response The response object to use to send data back to the browser.
- */
-static void listDirectory(std::string path, HttpResponse& response) {
-	// If path ends with a "/" then remove it.
-	if (GeneralUtils::endsWith(path, '/')) {
-		path = path.substr(0, path.length()-1);
-	}
-	response.addHeader("Content-Type", "text/html");
-	response.setStatus(HttpResponse::HTTP_STATUS_OK, "OK");
-	response.sendData("<html><head>");
-	if (!GeneralUtils::endsWith(path, '/')) {
-		response.sendData("<base href='" + path + "/' />");
-	}
-	response.sendData("</head><body>");
-	response.sendData("<h1>" + path + "</h1>");
-	response.sendData("<hr/>");
-	response.sendData("<p><a href='..'>[To Parent Directory]</a></p>");
-	response.sendData("<table style='font-family: monospace;'>");
-	auto files = FileSystem::getDirectoryContents(path);
-	for (auto it = files.begin(); it != files.end(); ++it) {
-		std::stringstream ss;
-		ss << "<tr><td><a href='" << it->getName() << "'>" << it->getName() << "</a></td>";
-		if (it->isDirectory()) {
-			ss << "<td>&lt;dir&gt;</td>";
-		}
-		else {
-			ss << "<td>" << it->length() << "</td>";
-		}
 
-		ss << "</tr>";
-		response.sendData(ss.str());
-		ESP_LOGD(LOG_TAG, "file: %s", ss.str().c_str());
-	}
-	response.sendData("</table>");
-	response.sendData("<hr/>");
-	response.sendData("</body></html>");
-	response.close();
-} // listDirectory
 
 /**
  * Constructor for HTTP Server
  */
 HttpServer::HttpServer() {
+	m_fileBufferSize = 4*1024;    // Default size of the file buffer.
 	m_portNumber = 80;            // The default port number.
+	m_clientTimeout = 5;            // The default timeout 5 seconds.
 	m_rootPath   = "";            // The default path.
 	m_useSSL     = false;         // Default SSL is no.
-	setDirectoryListing(false);   // Default directory listing is no.
+	setDirectoryListing(false);   // Default directory listing is disabled.
 } // HttpServer
 
 
@@ -100,6 +67,7 @@ private:
 	 *
 	 * If we didn't find a handler, then we are going to behave as a Web Server and try and serve up the
 	 * content from the file on the "file system".
+	 *
 	 * @param [in] request The HTTP request to process.
 	 */
 	void processRequest(HttpRequest &request) {
@@ -107,7 +75,7 @@ private:
 			request.getMethod().c_str(), request.getPath().c_str());
 
 		// Loop over all the path handlers we have looking for the first one that matches.  Note that none of them
-		// may match.  If we find one that does, then invoke the handler and that is the end of processing.
+		// need to match.  If we find one that does, then invoke the handler and that is the end of processing.
 		for (auto pathHandlerIterartor = m_pHttpServer->m_pathHandlers.begin();
 				pathHandlerIterartor != m_pHttpServer->m_pathHandlers.end();
 				++pathHandlerIterartor) {
@@ -134,42 +102,23 @@ private:
 		}
 
 		// Serve up the content from the file on the file system ... if found ...
-		std::ifstream ifStream;
+
 		std::string fileName = m_pHttpServer->getRootPath() + request.getPath(); // Build the absolute file name to read.
 
 		// If the file name ends with a '/' then remove it ... we are normalizing to NO trailing slashes.
 		if (GeneralUtils::endsWith(fileName, '/')) {
 			fileName = fileName.substr(0, fileName.length()-1);
 		}
-
+		
+		HttpResponse response(&request);
 		// Test if the path is a directory.
 		if (FileSystem::isDirectory(fileName)) {
 			ESP_LOGD(LOG_TAG, "Path %s is a directory", fileName.c_str());
-			HttpResponse response(&request);
-			listDirectory(fileName, response);
+			m_pHttpServer->listDirectory(fileName, response);   // List the contents of the directory.
 			return;
 		} // Path was a directory.
 
-		ESP_LOGD("HttpServerTask", "Opening file: %s", fileName.c_str());
-		ifStream.open(fileName, std::ifstream::in | std::ifstream::binary);      // Attempt to open the file for reading.
-
-		// If we failed to open the requested file, then it probably didn't exist so return a not found.
-		if (!ifStream.is_open()) {
-			ESP_LOGE("HttpServerTask", "Unable to open file %s for reading", fileName.c_str());
-			HttpResponse response(&request);
-			response.setStatus(HttpResponse::HTTP_STATUS_NOT_FOUND, "Not Found");
-			response.sendData("");
-			return; // Since we failed to open the file, no further work to be done.
-		}
-
-		// We now have an open file and want to push the content of that file through to the browser.
-		HttpResponse response(&request);
-		response.setStatus(HttpResponse::HTTP_STATUS_OK, "OK");
-		std::stringstream ss;
-		ss << ifStream.rdbuf();
-		response.sendData(ss.str());
-		ifStream.close();
-
+		response.sendFile(fileName, m_pHttpServer->getFileBufferSize());
 	} // processRequest
 
 
@@ -182,25 +131,29 @@ private:
 	void run(void* data) {
 		m_pHttpServer = (HttpServer*)data;             // The passed in data is an instance of an HttpServer.
 		m_pHttpServer->m_socket.setSSL(m_pHttpServer->m_useSSL);
-		m_pHttpServer->m_socket.listen(m_pHttpServer->m_portNumber);
+		m_pHttpServer->m_socket.listen(m_pHttpServer->m_portNumber, false /* is datagram */, true /* Allow address reuse */);
 		ESP_LOGD("HttpServerTask", "Listening on port %d", m_pHttpServer->getPort());
 		Socket clientSocket;
 		while(1) {   // Loop forever.
 
 			ESP_LOGD("HttpServerTask", "Waiting for new peer client");
-			//Memory::checkIntegrity();
+
 			try {
 				clientSocket = m_pHttpServer->m_socket.accept();   // Block waiting for a new external client connection.
+				clientSocket.setTimeout(m_pHttpServer->getClientTimeout());
 			}
 			catch(std::exception &e) {
 				ESP_LOGE("HttpServerTask", "Caught an exception waiting for new client!");
+				m_pHttpServer->m_semaphoreServerStarted.give();  // Release the semaphore .. we are now no longer running.
 				return;
 			}
 
-			ESP_LOGD("HttpServerTask", "HttpServer listening on port %d received a new client connection; sockFd=%d", m_pHttpServer->getPort(), clientSocket.getFD());
-
+			ESP_LOGD("HttpServerTask", "HttpServer that was listening on port %d has received a new client connection; sockFd=%d", m_pHttpServer->getPort(), clientSocket.getFD());
 
 			HttpRequest request(clientSocket);   // Build the HTTP Request from the socket.
+			if (request.isWebsocket()) {        // If this is a WebSocket
+				clientSocket.setTimeout(0);     //   Clear the timeout.
+			}
 			request.dump();                      // debug.
 			processRequest(request);             // Process the request.
 			if (!request.isWebsocket()) {        // If this is NOT a WebSocket, then close it as the request
@@ -272,6 +225,18 @@ void HttpServer::addPathHandler(
 
 
 /**
+ * @brief Get the size of the file buffer.
+ * When serving up a file from the file system, we can't afford to read the whole file into RAM before
+ * sending it.  As such, we must read the file in chunks.  The buffer size is the size of a chunk to be
+ * transmitted before the next chunk is read.
+ * @return The file buffer size.
+ */
+size_t HttpServer::getFileBufferSize() {
+	return m_fileBufferSize;
+} // getFileBufferSize
+
+
+/**
  * @brief Get the port number on which the HTTP Server is listening.
  * @return The port number on which the HTTP server is listening.
  */
@@ -289,10 +254,81 @@ std::string HttpServer::getRootPath() {
 } // getRootPath
 
 
+/**
+ * @brief Return whether or not we are using SSL.
+ * @return True if we are using SSL.
+ */
 bool HttpServer::getSSL() {
 	return m_useSSL;
 } // getSSL
 
+
+/**
+ * Send a directory listing back to the browser.
+ * @param [in] path The path of the directory to list.
+ * @param [in] response The response object to use to send data back to the browser.
+ */
+void HttpServer::listDirectory(std::string path, HttpResponse& response) {
+	// If path ends with a "/" then remove it.
+	if (GeneralUtils::endsWith(path, '/')) {
+		path = path.substr(0, path.length()-1);
+	}
+
+	// The url path may not be the same as path which is the path on the file system.
+	// They will differ if we are using a root path.  We check to see if the file system path
+	// starts with the root path, if it does, we remove the root path from the url path.
+	std::string urlPath = path;
+	if (urlPath.compare(0, getRootPath().length(), getRootPath()) == 0) {
+		urlPath = urlPath.substr(getRootPath().length());
+	}
+
+	response.addHeader("Content-Type", "text/html");
+	response.setStatus(HttpResponse::HTTP_STATUS_OK, "OK");
+	response.sendData("<html><head>");
+	if (!GeneralUtils::endsWith(path, '/')) {
+		response.sendData("<base href='" + urlPath + "/' />");
+	}
+	response.sendData("</head><body>");
+	response.sendData("<h1>" + path + "</h1>");
+	response.sendData("<hr/>");
+	response.sendData("<p><a href='..'>[To Parent Directory]</a></p>");
+	response.sendData("<table style='font-family: monospace;'>");
+	auto files = FileSystem::getDirectoryContents(path);
+	for (auto it = files.begin(); it != files.end(); ++it) {
+		std::stringstream ss;
+		ss << "<tr><td><a href='" << it->getName() << "'>" << it->getName() << "</a></td>";
+		if (it->isDirectory()) {
+			ss << "<td>&lt;dir&gt;</td>";
+		}
+		else {
+			ss << "<td>" << it->length() << "</td>";
+		}
+
+		ss << "</tr>";
+		response.sendData(ss.str());
+		ESP_LOGD(LOG_TAG, "file: %s", ss.str().c_str());
+	}
+	response.sendData("</table>");
+	response.sendData("<hr/>");
+	response.sendData("</body></html>");
+	response.close();
+} // listDirectory
+
+/**
+ * @brief Set different socket timeout for new connections.
+ * @param [in] use Set to true to enable directory listing.
+ */
+void HttpServer::setClientTimeout(uint32_t timeout) {
+	m_clientTimeout = timeout;
+}
+
+/**
+ * @brief Get current socket's timeout for new connections.
+ * @param [in] use Set to true to enable directory listing.
+ */
+uint32_t HttpServer::getClientTimeout() {
+	return m_clientTimeout;
+}
 
 /**
  * @brief Set whether or not we will list directories.
@@ -301,6 +337,18 @@ bool HttpServer::getSSL() {
 void HttpServer::setDirectoryListing(bool use) {
 	m_directoryListing = use;
 } // setDirectoryListening
+
+
+/**
+ * @brief Set the size of the file buffer.
+ * When serving up a file from the file system, we can't afford to read the whole file into RAM before
+ * sending it.  As such, we must read the file in chunks.  The buffer size is the size of a chunk to be
+ * transmitted before the next chunk is read.
+ * @param [in] fileBufferSize How large should the file buffer size be?
+ */
+void HttpServer::setFileBufferSize(size_t fileBufferSize) {
+	m_fileBufferSize = fileBufferSize;
+} // setFileBufferSize
 
 
 /**
@@ -321,6 +369,12 @@ void HttpServer::setDirectoryListing(bool use) {
  * @return N/A.
  */
 void HttpServer::setRootPath(std::string path) {
+
+	// Should the user have supplied a path that ends in a "/" remove the trailing slash.  This also
+	// means that "/" becomes "".
+	if (GeneralUtils::endsWith(path, '/')) {
+		path = path.substr(0, path.length()-1);
+	}
 	m_rootPath = path;
 } // setRootPath
 
@@ -336,11 +390,20 @@ void HttpServer::start(uint16_t portNumber, bool useSSL) {
 	// Design:
 	// The start of the HTTP server should be as fast as possible.
 	ESP_LOGD(LOG_TAG, ">> start: port: %d, useSSL: %d", portNumber, useSSL);
+
+	// Take the semaphore that says that we are now running.  If we are already running, then end here as
+	// there is nothing further to do.
+	if (m_semaphoreServerStarted.take(100, "start") == false) {
+		ESP_LOGD(LOG_TAG, "<< start: Already running");
+		return;
+	}
+
 	m_useSSL     = useSSL;
 	m_portNumber = portNumber;
 
 	HttpServerTask* pHttpServerTask = new HttpServerTask("HttpServerTask");
 	pHttpServerTask->start(this);
+	ESP_LOGD(LOG_TAG, "<< start");
 } // start
 
 
@@ -352,7 +415,8 @@ void HttpServer::stop() {
 	// that is listening for incoming connections.  That will then shutdown all the other
 	// activities.
 	ESP_LOGD(LOG_TAG, ">> stop");
-	m_socket.close();
+	m_socket.close();                      // Close the socket that is being used to watch for incoming requests.
+	m_semaphoreServerStarted.wait("stop"); // Wait for the server to stop.
 	ESP_LOGD(LOG_TAG, "<< stop");
 } // stop
 
@@ -394,6 +458,7 @@ PathHandler::PathHandler(std::string method, std::string matchPath,
 	m_method          = method;                  // Save the method we are looking for.
 	m_textPattern     = matchPath;
 	m_isRegex         = false;
+	m_pRegex          = nullptr;
 	m_pRequestHandler = pWebServerRequestHandler; // The handler to be invoked if the pattern matches.
 } // PathHandler
 
@@ -428,5 +493,7 @@ bool PathHandler::match(std::string method, std::string path) {
 void PathHandler::invokePathHandler(HttpRequest* request, HttpResponse *response) {
 	m_pRequestHandler(request, response);
 } // invokePathHandler
+
+
 
 

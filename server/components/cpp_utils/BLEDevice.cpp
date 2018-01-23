@@ -11,12 +11,13 @@
 #include <freertos/task.h>
 #include <esp_err.h>
 #include <nvs_flash.h>
-#include <bt.h>                // ESP32 BLE
+#include <esp_bt.h>            // ESP32 BLE
 #include <esp_bt_device.h>     // ESP32 BLE
 #include <esp_bt_main.h>       // ESP32 BLE
 #include <esp_gap_ble_api.h>   // ESP32 BLE
 #include <esp_gatts_api.h>     // ESP32 BLE
 #include <esp_gattc_api.h>     // ESP32 BLE
+#include <esp_gatt_common_api.h>// ESP32 BLE
 #include <esp_err.h>           // ESP32 ESP-IDF
 #include <esp_log.h>           // ESP32 ESP-IDF
 #include <map>                 // Part of C++ Standard library
@@ -33,7 +34,6 @@
 
 static const char* LOG_TAG = "BLEDevice";
 
-
 /**
  * Singletons for the BLEDevice.
  */
@@ -41,14 +41,22 @@ BLEServer* BLEDevice::m_pServer = nullptr;
 BLEScan*   BLEDevice::m_pScan   = nullptr;
 BLEClient* BLEDevice::m_pClient = nullptr;
 bool       initialized          = false;   // Have we been initialized?
-
+esp_ble_sec_act_t 	BLEDevice::m_securityLevel = (esp_ble_sec_act_t)0;
+BLESecurityCallbacks* BLEDevice::m_securityCallbacks = nullptr;
+uint16_t   BLEDevice::m_localMTU = 23;
 
 /**
  * @brief Create a new instance of a client.
  * @return A new instance of the client.
  */
 /* STATIC */ BLEClient* BLEDevice::createClient() {
+	ESP_LOGD(LOG_TAG, ">> createClient");
+#ifndef CONFIG_GATTC_ENABLE  // Check that BLE GATTC is enabled in make menuconfig
+	ESP_LOGE(LOG_TAG, "BLE GATTC is not enabled - CONFIG_GATTC_ENABLE not defined");
+	abort();
+#endif  // CONFIG_GATTC_ENABLE
 	m_pClient = new BLEClient();
+	ESP_LOGD(LOG_TAG, "<< createClient");
 	return m_pClient;
 } // createClient
 
@@ -59,6 +67,10 @@ bool       initialized          = false;   // Have we been initialized?
  */
 /* STATIC */ BLEServer* BLEDevice::createServer() {
 	ESP_LOGD(LOG_TAG, ">> createServer");
+#ifndef CONFIG_GATTS_ENABLE  // Check that BLE GATTS is enabled in make menuconfig
+	ESP_LOGE(LOG_TAG, "BLE GATTS is not enabled - CONFIG_GATTS_ENABLE not defined");
+	abort();
+#endif // CONFIG_GATTS_ENABLE
 	m_pServer = new BLEServer();
 	m_pServer->createApp(0);
 	ESP_LOGD(LOG_TAG, "<< createServer");
@@ -84,6 +96,26 @@ bool       initialized          = false;   // Have we been initialized?
 
 	BLEUtils::dumpGattServerEvent(event, gatts_if, param);
 
+	switch(event) {
+		case ESP_GATTS_CONNECT_EVT: {
+			BLEDevice::m_localMTU = 23;
+			if(BLEDevice::m_securityLevel){
+				esp_ble_set_encryption(param->connect.remote_bda, BLEDevice::m_securityLevel);
+			}
+			break;
+		} // ESP_GATTS_CONNECT_EVT
+
+		case ESP_GATTS_MTU_EVT: {
+			BLEDevice::m_localMTU = param->mtu.mtu;
+	        ESP_LOGI(LOG_TAG, "ESP_GATTS_MTU_EVT, MTU %d", BLEDevice::m_localMTU);
+	        break;
+		}
+		default: {
+			break;
+		}
+	} // switch
+
+
 	if (BLEDevice::m_pServer != nullptr) {
 		BLEDevice::m_pServer->handleGATTServerEvent(event, gatts_if, param);
 	}
@@ -107,13 +139,26 @@ bool       initialized          = false;   // Have we been initialized?
 	ESP_LOGD(LOG_TAG, "gattClientEventHandler [esp_gatt_if: %d] ... %s",
 		gattc_if, BLEUtils::gattClientEventTypeToString(event).c_str());
 	BLEUtils::dumpGattClientEvent(event, gattc_if, param);
-/*
+
 	switch(event) {
+		case ESP_GATTC_CONNECT_EVT: {
+			if(BLEDevice::getMTU() != 23){
+				esp_err_t errRc = esp_ble_gattc_send_mtu_req(gattc_if, param->connect.conn_id);
+				if (errRc != ESP_OK) {
+					ESP_LOGE(LOG_TAG, "esp_ble_gattc_send_mtu_req: rc=%d %s", errRc, GeneralUtils::errorToString(errRc));
+				}
+			}
+			if(BLEDevice::m_securityLevel){
+				esp_ble_set_encryption(param->connect.remote_bda, BLEDevice::m_securityLevel);
+			}
+			break;
+		} // ESP_GATTC_CONNECT_EVT
+
 		default: {
 			break;
 		}
 	} // switch
-	*/
+
 
 	// If we have a client registered, call it.
 	if (BLEDevice::m_pClient != nullptr) {
@@ -133,14 +178,63 @@ bool       initialized          = false;   // Have we been initialized?
 	BLEUtils::dumpGapEvent(event, param);
 
 	switch(event) {
-		case ESP_GAP_BLE_SEC_REQ_EVT: {
-			esp_err_t errRc = ::esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
-			if (errRc != ESP_OK) {
-				ESP_LOGE(LOG_TAG, "esp_ble_gap_security_rsp: rc=%d %s", errRc, GeneralUtils::errorToString(errRc));
+
+		 case ESP_GAP_BLE_OOB_REQ_EVT:                                /* OOB request event */
+			 ESP_LOGI(LOG_TAG, "ESP_GAP_BLE_OOB_REQ_EVT");
+			 break;
+		 case ESP_GAP_BLE_LOCAL_IR_EVT:                               /* BLE local IR event */
+			 ESP_LOGI(LOG_TAG, "ESP_GAP_BLE_LOCAL_IR_EVT");
+			 break;
+		 case ESP_GAP_BLE_LOCAL_ER_EVT:                               /* BLE local ER event */
+			 ESP_LOGI(LOG_TAG, "ESP_GAP_BLE_LOCAL_ER_EVT");
+			 break;
+		 case ESP_GAP_BLE_NC_REQ_EVT:
+			 ESP_LOGI(LOG_TAG, "ESP_GAP_BLE_NC_REQ_EVT");
+			if(BLEDevice::m_securityCallbacks!=nullptr){
+			 	 esp_ble_confirm_reply(param->ble_security.ble_req.bd_addr, BLEDevice::m_securityCallbacks->onConfirmPIN(param->ble_security.key_notif.passkey));
+			}
+			 break;
+		 case ESP_GAP_BLE_PASSKEY_REQ_EVT:                           /* passkey request event */
+			ESP_LOGI(LOG_TAG, "ESP_GAP_BLE_PASSKEY_REQ_EVT: ");
+			// esp_log_buffer_hex(LOG_TAG, m_remote_bda, sizeof(m_remote_bda));
+			if(BLEDevice::m_securityCallbacks!=nullptr){
+				esp_ble_passkey_reply(param->ble_security.ble_req.bd_addr, true, BLEDevice::m_securityCallbacks->onPassKeyRequest());
 			}
 			break;
-		}
-
+			/*
+			 * TODO should we add white/black list comparison?
+			 */
+		 case ESP_GAP_BLE_SEC_REQ_EVT:
+			 /* send the positive(true) security response to the peer device to accept the security request.
+			 If not accept the security request, should sent the security response with negative(false) accept value*/
+			 ESP_LOGI(LOG_TAG, "ESP_GAP_BLE_SEC_REQ_EVT");
+			if(BLEDevice::m_securityCallbacks!=nullptr){
+				esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, BLEDevice::m_securityCallbacks->onSecurityRequest());
+			}
+			else{
+				esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
+			}
+			break;
+			 /*
+			  *
+			  */
+		 case ESP_GAP_BLE_PASSKEY_NOTIF_EVT:  ///the app will receive this evt when the IO  has Output capability and the peer device IO has Input capability.
+			 ///show the passkey number to the user to input it in the peer deivce.
+			 ESP_LOGI(LOG_TAG, "ESP_GAP_BLE_PASSKEY_NOTIF_EVT");
+			if(BLEDevice::m_securityCallbacks!=nullptr){
+				ESP_LOGI(LOG_TAG, "passKey = %d", param->ble_security.key_notif.passkey);
+				BLEDevice::m_securityCallbacks->onPassKeyNotify(param->ble_security.key_notif.passkey);
+			}
+			 break;
+		 case ESP_GAP_BLE_KEY_EVT:
+			 //shows the ble key type info share with peer device to the user.
+			 ESP_LOGI(LOG_TAG, "key type = %s", BLESecurity::esp_key_type_to_str(param->ble_security.ble_key.key_type));
+			 break;
+		 case ESP_GAP_BLE_AUTH_CMPL_EVT:
+			 if(BLEDevice::m_securityCallbacks!=nullptr){
+				 BLEDevice::m_securityCallbacks->onAuthenticationComplete(param->ble_security.auth_cmpl);
+			 }
+			 break;
 		default: {
 			break;
 		}
@@ -157,6 +251,12 @@ bool       initialized          = false;   // Have we been initialized?
 	if (BLEDevice::m_pScan != nullptr) {
 		BLEDevice::getScan()->handleGAPEvent(event, param);
 	}
+
+	/*
+	 * Security events:
+	 */
+
+
 } // gapEventHandler
 
 
@@ -260,17 +360,21 @@ bool       initialized          = false;   // Have we been initialized?
 			return;
 		}
 
+#ifdef CONFIG_GATTC_ENABLE   // Check that BLE client is configured in make menuconfig
 		errRc = esp_ble_gattc_register_callback(BLEDevice::gattClientEventHandler);
 		if (errRc != ESP_OK) {
 			ESP_LOGE(LOG_TAG, "esp_ble_gattc_register_callback: rc=%d %s", errRc, GeneralUtils::errorToString(errRc));
 			return;
 		}
+#endif   // CONFIG_GATTC_ENABLE
 
+#ifdef CONFIG_GATTS_ENABLE  // Check that BLE server is configured in make menuconfig
 		errRc = esp_ble_gatts_register_callback(BLEDevice::gattServerEventHandler);
 		if (errRc != ESP_OK) {
 			ESP_LOGE(LOG_TAG, "esp_ble_gatts_register_callback: rc=%d %s", errRc, GeneralUtils::errorToString(errRc));
 			return;
 		}
+#endif   // CONFIG_GATTS_ENABLE
 
 		errRc = ::esp_ble_gap_set_device_name(deviceName.c_str());
 		if (errRc != ESP_OK) {
@@ -337,4 +441,70 @@ bool       initialized          = false;   // Have we been initialized?
 	return oss.str();
 } // toString
 
+
+/**
+ * @brief Add an entry to the BLE white list.
+ * @param [in] address The address to add to the white list.
+ */
+void BLEDevice::whiteListAdd(BLEAddress address) {
+	ESP_LOGD(LOG_TAG, ">> whiteListAdd: %s", address.toString().c_str());
+	esp_err_t errRc = esp_ble_gap_update_whitelist(true, *address.getNative());  // True to add an entry.
+	if (errRc != ESP_OK) {
+		ESP_LOGE(LOG_TAG, "esp_ble_gap_update_whitelist: rc=%d %s", errRc, GeneralUtils::errorToString(errRc));
+	}
+	ESP_LOGD(LOG_TAG, "<< whiteListAdd");
+} // whiteListAdd
+
+
+/**
+ * @brief Remove an entry from the BLE white list.
+ * @param [in] address The address to remove from the white list.
+ */
+void BLEDevice::whiteListRemove(BLEAddress address) {
+	ESP_LOGD(LOG_TAG, ">> whiteListRemove: %s", address.toString().c_str());
+	esp_err_t errRc = esp_ble_gap_update_whitelist(false, *address.getNative());  // False to remove an entry.
+	if (errRc != ESP_OK) {
+		ESP_LOGE(LOG_TAG, "esp_ble_gap_update_whitelist: rc=%d %s", errRc, GeneralUtils::errorToString(errRc));
+	}
+	ESP_LOGD(LOG_TAG, "<< whiteListRemove");
+} // whiteListRemove
+
+/*
+ * @brief Set encryption level that will be negotiated with peer device durng connection
+ * @param [in] level Requested encryption level
+ */
+void BLEDevice::setEncryptionLevel(esp_ble_sec_act_t level) {
+	BLEDevice::m_securityLevel = level;
+}
+
+/*
+ * @brief Set callbacks that will be used to handle encryption negotiation events and authentication events
+ * @param [in] cllbacks Pointer to BLESecurityCallbacks class callback
+ */
+void BLEDevice::setSecurityCallbacks(BLESecurityCallbacks* callbacks) {
+	BLEDevice::m_securityCallbacks = callbacks;
+}
+
+/*
+ * @brief Setup local mtu that will be used to negotiate mtu during request from client peer
+ * @param [in] mtu Value to set local mtu, should be larger than 23 and lower or equal to 517
+ */
+esp_err_t BLEDevice::setMTU(uint16_t mtu) {
+	ESP_LOGD(LOG_TAG, ">> setLocalMTU: %d", mtu);
+	esp_err_t err = esp_ble_gatt_set_local_mtu(mtu);
+	if(err == ESP_OK){
+		m_localMTU = mtu;
+	} else {
+		ESP_LOGE(LOG_TAG, "can't set local mtu value: %d", mtu);
+	}
+	ESP_LOGD(LOG_TAG, "<< setLocalMTU");
+	return err;
+}
+
+/*
+ * @brief Get local MTU value set during mtu request or default value
+ */
+uint16_t BLEDevice::getMTU() {
+	return m_localMTU;
+}
 #endif // CONFIG_BT_ENABLED

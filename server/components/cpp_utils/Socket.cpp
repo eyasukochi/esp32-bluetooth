@@ -60,8 +60,10 @@ Socket Socket::accept() {
 	struct sockaddr addr;
 	getBind(&addr);
 	ESP_LOGD(LOG_TAG, ">> accept: Accepting on %s; sockFd: %d, using SSL: %d", addressToString(&addr).c_str(), m_sock, getSSL());
-
-	int clientSockFD = ::lwip_accept_r(m_sock, nullptr, nullptr);
+	struct sockaddr_in client_addr;
+	socklen_t sin_size;
+	int clientSockFD = ::lwip_accept_r(m_sock,  (struct sockaddr *)&client_addr, &sin_size);
+	//printf("------> new connection client %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 	if (clientSockFD == -1) {
 		SocketException se(errno);
 		ESP_LOGE(LOG_TAG, "accept(): %s, m_sock=%d", strerror(errno), m_sock);
@@ -105,9 +107,9 @@ std::string Socket::addressToString(struct sockaddr* addr) {
  * Specify an address of INADDR_ANY to use the local server IP.
  * @param [in] port Port number to bind.
  * @param [in] address Address to bind.
- * @return N/A
+ * @return Returns 0 on success.
  */
-void Socket::bind(uint16_t port, uint32_t address) {
+int Socket::bind(uint16_t port, uint32_t address) {
 	ESP_LOGD(LOG_TAG, ">> bind: port=%d, address=0x%x", port, address);
 
 	if (m_sock == -1) {
@@ -118,35 +120,39 @@ void Socket::bind(uint16_t port, uint32_t address) {
 	serverAddress.sin_addr.s_addr = htonl(address);
 	serverAddress.sin_port        = htons(port);
 	int rc = ::lwip_bind_r(m_sock, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
-	if (rc == -1) {
+	if (rc != 0) {
 		ESP_LOGE(LOG_TAG, "<< bind: bind[socket=%d]: %d: %s", m_sock, errno, strerror(errno));
-		return;
+		return rc;
 	}
 	ESP_LOGD(LOG_TAG, "<< bind");
+	return rc;
 } // bind
 
 
 /**
  * @brief Close the socket.
  *
- * @return N/A.
+ * @return Returns 0 on success.
  */
-void Socket::close() {
+int Socket::close() {
 	ESP_LOGD(LOG_TAG, "close: m_sock=%d, ssl: %d", m_sock, getSSL());
+	int rc;
 	if (getSSL()) {
-		int rc = mbedtls_ssl_close_notify(&m_sslContext);
+		rc = mbedtls_ssl_close_notify(&m_sslContext);
 		if (rc < 0) {
 			ESP_LOGD(LOG_TAG, "mbedtls_ssl_close_notify: %d", rc);
 		}
 	}
+	rc = 0;
 	if (m_sock != -1) {
 		ESP_LOGD(LOG_TAG, "Calling lwip_close on %d", m_sock);
-		int rc = lwip_close_r(m_sock);
+		rc = ::lwip_close_r(m_sock);
 		if (rc != 0) {
-			ESP_LOGE(LOG_TAG, "Error with lwip_close");
+			ESP_LOGE(LOG_TAG, "Error with lwip_close: %d", rc);
 		}
 	}
 	m_sock = -1;
+	return rc;
 } // close
 
 
@@ -251,25 +257,62 @@ bool Socket::isValid() {
  * @brief Create a listening socket.
  * @param [in] port The port number to listen upon.
  * @param [in] isDatagram True if we are listening on a datagram.  The default is false.
+ * @return Returns 0 on success.
  */
-void Socket::listen(uint16_t port, bool isDatagram) {
+int Socket::listen(uint16_t port, bool isDatagram, bool reuseAddress) {
 	ESP_LOGD(LOG_TAG, ">> listen: port: %d, isDatagram: %d", port, isDatagram);
 	createSocket(isDatagram);
-	bind(port, 0);
+	setReuseAddress(reuseAddress);
+	int rc = bind(port, 0);
+	if (rc != 0) {
+		ESP_LOGE(LOG_TAG, "<< listen: Error in bind: %s", strerror(errno));
+		return rc;
+	}
 	// For a datagram socket, we don't execute a listen call.  That is is only for connection oriented
 	// sockets.
 	if (!isDatagram) {
-		int rc = ::lwip_listen_r(m_sock, 5);
+		rc = ::lwip_listen_r(m_sock, 5);
 		if (rc == -1) {
 			ESP_LOGE(LOG_TAG, "<< listen: %s", strerror(errno));
+			return rc;
 		}
 	}
 	ESP_LOGD(LOG_TAG, "<< listen");
+	return 0;
 } // listen
 
 
 bool Socket::operator <(const Socket& other) const {
 	return m_sock < other.m_sock;
+}
+
+
+/**
+ * @brief Set the socket option.
+ */
+int Socket::setSocketOption(int option, void* value, size_t len)
+{
+    int res = ::setsockopt(m_sock, SOL_SOCKET, option, value, len);
+    if(res < 0) {
+    	ESP_LOGE(LOG_TAG, "%X : %d", option, errno);
+    }
+    return res;
+} // setSocketOption
+
+
+/**
+ * @brief Socket timeout.
+ * @param [in] seconds to wait.
+ */
+int Socket::setTimeout(uint32_t seconds)
+{
+    struct timeval tv;
+    tv.tv_sec = seconds;
+    tv.tv_usec = 0;
+    if(setSocketOption(SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval)) < 0) {
+        return -1;
+    }
+    return setSocketOption(SO_SNDTIMEO, (char *)&tv, sizeof(struct timeval));
 }
 
 
@@ -440,6 +483,18 @@ void Socket::sendTo(const uint8_t* data, size_t length, struct sockaddr* pAddr) 
 		ESP_LOGE(LOG_TAG, "sendto: socket=%d %s", m_sock, strerror(errno));
 	}
 } // sendTo
+
+
+/**
+ * @brief Flag the socket address as re-usable.
+ * @param [in] value True to mark the address as re-usable, false otherwise.
+ */
+void Socket::setReuseAddress(bool value) {
+	ESP_LOGD(LOG_TAG, ">> setReuseAddress: %d", value);
+	int val = value?1:0;
+	setSocketOption(SO_REUSEADDR, &val, sizeof(val));
+	ESP_LOGD(LOG_TAG, "<< setReuseAddress");
+} // setReuseAddress
 
 
 /**
@@ -614,3 +669,5 @@ SocketInputRecordStreambuf::int_type SocketInputRecordStreambuf::underflow() {
 SocketException::SocketException(int myErrno) {
 	m_errno = myErrno;
 }
+
+
